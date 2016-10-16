@@ -28,6 +28,8 @@ namespace TinySato
         }
 
         private bool disposed = false;
+        protected bool send_at_dispose_if_not_yet_sent = false;
+        protected bool is_sent = false;
         protected IntPtr printer = new IntPtr();
         protected List<byte[]> operations = new List<byte[]> { };
         const byte STX = 0x02, ESC = 0x1b, ETX = 0x03;
@@ -50,6 +52,16 @@ namespace TinySato
 
         [DllImport("winspool.Drv", EntryPoint = "WritePrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
         public static extern bool WritePrinter(IntPtr hPrinter, IntPtr pBytes, Int32 dwCount, out Int32 dwWritten);
+
+        public TinySato(string PrinterName, int paper_height, int paper_width) : this(PrinterName)
+        {
+            SetPaperSize(paper_height, paper_width);
+        }
+
+        public TinySato(string PrinterName, bool send_at_dispose_if_not_yet_sent) : this(PrinterName)
+        {
+            this.send_at_dispose_if_not_yet_sent = send_at_dispose_if_not_yet_sent;
+        }
 
         public TinySato(string PrinterName, string job_name = "")
         {
@@ -159,6 +171,7 @@ namespace TinySato
                 throw new TinySatoException("failed to send operations.", inner);
             }
             finally { Marshal.FreeCoTaskMem(raw); }
+            is_sent = true;
         }
 
         public void Close()
@@ -186,6 +199,12 @@ namespace TinySato
         {
             if (disposed)
                 return;
+
+            if (!is_sent && send_at_dispose_if_not_yet_sent)
+            {
+                this.Send();
+            }
+
             if (disposing)
             {
                 this.operations.Clear();
