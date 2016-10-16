@@ -20,6 +20,13 @@ namespace TinySato
 
     public class TinySato : IDisposable
     {
+        public enum SensorType
+        {
+            Reflection = 0,
+            Transparent = 1,
+            Ignore = 2
+        }
+
         private bool disposed = false;
         protected IntPtr printer = new IntPtr();
         protected List<byte[]> operations = new List<byte[]> { };
@@ -85,11 +92,26 @@ namespace TinySato
             Add(string.Format("A1V{0:D5}H{1:D4}", height, width));
         }
 
-        public void AddBarCodeRatio12(Barcodes type, int zoom, int height, string str)
+        public void SetCalendar(DateTime dt)
         {
-            Add(string.Format(
-                "D{0:D1}{1:D2}{2:D3}*{3}*",
-                type, zoom, height, str));
+            Add(string.Format("WT{0:D2}{1:D2}{2:D2}{3:D2}{4:D2}",
+                dt.Year % 1000, dt.Month, dt.Day, dt.Hour, dt.Minute));
+        }
+
+        public void SetPageNumber(uint number_of_pages)
+        {
+            if (!(1 <= number_of_pages && number_of_pages <= 999999))
+                throw new TinySatoException("Specify 1 or more for number of pages!");
+            Add(string.Format("Q{0:D6}", number_of_pages));
+        }
+
+        public void AddBarCode128(int narrow_bar_width, int barcode_height, string print_data)
+        {
+            Add(string.Format("BG{0:D2}{1:D3}{2}", narrow_bar_width, barcode_height, print_data));
+        }
+        public void SetSensorType(SensorType type)
+        {
+            Add(string.Format("IG{0:D1}", (int)type));
         }
 
         public void Add(string operation)
