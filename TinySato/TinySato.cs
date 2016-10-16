@@ -109,6 +109,12 @@ namespace TinySato
         {
             Add(string.Format("BG{0:D2}{1:D3}{2}", narrow_bar_width, barcode_height, print_data));
         }
+
+        public void AddBMP()
+        {
+            throw new NotImplementedException();
+        }
+
         public void SetSensorType(SensorType type)
         {
             Add(string.Format("IG{0:D1}", (int)type));

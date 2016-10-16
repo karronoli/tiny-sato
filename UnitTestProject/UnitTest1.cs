@@ -12,15 +12,11 @@ namespace UnitTestProject
         {
             this.sato = new TinySato.TinySato("T408v");
         }
+
         [TestCleanup]
         public void TearDown()
         {
             this.sato.Close();
-        }
-
-        protected byte[] to_bytes(string str)
-        {
-            return System.Text.Encoding.ASCII.GetBytes(str);
         }
 
         [TestMethod]
