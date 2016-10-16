@@ -1,15 +1,23 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
+using System.ComponentModel;
 
 namespace TinySato
 {
-    public enum Barcodes
+    // https://msdn.microsoft.com/library/cc398781.aspx
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+    public class DOCINFOA
     {
-        CODE39 = 1,
-        JAN13 = 3,
-        EAN13 = 3
+        [MarshalAs(UnmanagedType.LPStr)]
+        public string pDocName;
+        [MarshalAs(UnmanagedType.LPStr)]
+        public string pOutputFile;
+        [MarshalAs(UnmanagedType.LPStr)]
+        public string pDataType;
     }
+
     public class TinySato : IDisposable
     {
         private bool disposed = false;
@@ -17,13 +25,43 @@ namespace TinySato
         protected List<byte[]> operations = new List<byte[]> { };
         const byte STX = 0x02, ESC = 0x1b, ETX = 0x03;
 
-        public TinySato(string PrinterName)
+        [DllImport("winspool.Drv", EntryPoint = "OpenPrinterA", SetLastError = true, CharSet = CharSet.Ansi, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
+        public static extern bool OpenPrinter([MarshalAs(UnmanagedType.LPStr)] string szPrinter, out IntPtr hPrinter, IntPtr pd);
+        [DllImport("winspool.Drv", EntryPoint = "ClosePrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
+        public static extern bool ClosePrinter(IntPtr hPrinter);
+        [DllImport("winspool.Drv", EntryPoint = "StartDocPrinterA", SetLastError = true, CharSet = CharSet.Ansi, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
+        public static extern bool StartDocPrinter(IntPtr hPrinter, Int32 level, [In, MarshalAs(UnmanagedType.LPStruct)] DOCINFOA di);
+
+        [DllImport("winspool.Drv", EntryPoint = "EndDocPrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
+        public static extern bool EndDocPrinter(IntPtr hPrinter);
+
+        [DllImport("winspool.Drv", EntryPoint = "StartPagePrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
+        public static extern bool StartPagePrinter(IntPtr hPrinter);
+
+        [DllImport("winspool.Drv", EntryPoint = "EndPagePrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
+        public static extern bool EndPagePrinter(IntPtr hPrinter);
+
+        [DllImport("winspool.Drv", EntryPoint = "WritePrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
+        public static extern bool WritePrinter(IntPtr hPrinter, IntPtr pBytes, Int32 dwCount, out Int32 dwWritten);
+
+        public TinySato(string PrinterName, string job_name = "")
         {
-            string error = String.Empty;
-            string job_name = "document";
-            if (!Print.SatoOpen(ref printer, PrinterName, job_name, ref error))
+            try
             {
-                throw new TinySatoException(error);
+                if (!OpenPrinter(PrinterName.Normalize(), out printer, IntPtr.Zero))
+                    throw new Win32Exception(Marshal.GetLastWin32Error());
+                const int level = 1; // for not win98
+                var di = new DOCINFOA();
+                di.pDocName = string.IsNullOrEmpty(job_name) ? "RAW DOCUMENT" : job_name;
+                di.pDataType = "raw";
+                if (!StartDocPrinter(printer, level, di))
+                    throw new Win32Exception(Marshal.GetLastWin32Error());
+                if (!StartPagePrinter(printer))
+                    throw new Win32Exception(Marshal.GetLastWin32Error());
+            }
+            catch (Win32Exception inner)
+            {
+                throw new TinySatoException("failed to use printer.", inner);
             }
         }
 
@@ -74,24 +112,34 @@ namespace TinySato
                 // データ送信の終了を設定します
                 ESC, Convert.ToByte('Z'), ETX
             });
-            RawSend(operations.SelectMany(x => x).ToArray());
-        }
 
-        public void RawSend(byte[] operations)
-        {
-            string error = String.Empty;
-            if (!Print.SatoSend(printer, operations, ref error))
+            var flatten = operations.SelectMany(x => x).ToArray();
+            var raw = Marshal.AllocCoTaskMem(flatten.Length);
+            Marshal.Copy(flatten, 0, raw, flatten.Length);
+            try
             {
-                throw new TinySatoException(error);
+                int written = 0;
+                if (!WritePrinter(printer, raw, flatten.Length, out written))
+                    throw new Win32Exception(Marshal.GetLastWin32Error());
+                if (!EndPagePrinter(printer))
+                    throw new Win32Exception(Marshal.GetLastWin32Error());
+                if (!EndDocPrinter(printer))
+                    throw new Win32Exception(Marshal.GetLastWin32Error());
             }
+            catch (Win32Exception inner)
+            {
+                throw new TinySatoException("failed to send operations.", inner);
+            }
+            finally { Marshal.FreeCoTaskMem(raw); }
         }
 
         public void Close()
         {
-            string error = String.Empty;
-            if (!Print.SatoClose(printer, ref error))
+            if (!ClosePrinter(printer))
             {
-                throw new TinySatoException(error);
+                var code = Marshal.GetLastWin32Error();
+                var inner = new Win32Exception(code);
+                throw new TinySatoException("failed to close printer.", inner);
             }
         }
 
