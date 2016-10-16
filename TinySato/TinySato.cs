@@ -18,14 +18,15 @@ namespace TinySato
         public string pDataType;
     }
 
-    public class TinySato : IDisposable
+    public enum SensorType
     {
-        public enum SensorType
-        {
-            Reflection = 0,
-            Transparent = 1,
-            Ignore = 2
-        }
+        Reflection = 0,
+        Transparent = 1,
+        Ignore = 2
+    }
+
+    public class Printer : IDisposable
+    {
 
         private bool disposed = false;
         protected bool send_at_dispose_if_not_yet_sent = false;
@@ -53,35 +54,16 @@ namespace TinySato
         [DllImport("winspool.Drv", EntryPoint = "WritePrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
         public static extern bool WritePrinter(IntPtr hPrinter, IntPtr pBytes, Int32 dwCount, out Int32 dwWritten);
 
-        public TinySato(string PrinterName, int paper_height, int paper_width) : this(PrinterName)
-        {
-            SetPaperSize(paper_height, paper_width);
-        }
-
-        public TinySato(string PrinterName, bool send_at_dispose_if_not_yet_sent) : this(PrinterName)
+        public Printer(string PrinterName, bool send_at_dispose_if_not_yet_sent) : this(PrinterName)
         {
             this.send_at_dispose_if_not_yet_sent = send_at_dispose_if_not_yet_sent;
         }
 
-        public TinySato(string PrinterName, string job_name = "")
+        public Printer(string name)
         {
-            try
-            {
-                if (!OpenPrinter(PrinterName.Normalize(), out printer, IntPtr.Zero))
-                    throw new Win32Exception(Marshal.GetLastWin32Error());
-                const int level = 1; // for not win98
-                var di = new DOCINFOA();
-                di.pDocName = string.IsNullOrEmpty(job_name) ? "RAW DOCUMENT" : job_name;
-                di.pDataType = "raw";
-                if (!StartDocPrinter(printer, level, di))
-                    throw new Win32Exception(Marshal.GetLastWin32Error());
-                if (!StartPagePrinter(printer))
-                    throw new Win32Exception(Marshal.GetLastWin32Error());
-            }
-            catch (Win32Exception inner)
-            {
-                throw new TinySatoException("failed to use printer.", inner);
-            }
+            if (!OpenPrinter(name.Normalize(), out printer, IntPtr.Zero))
+                throw new TinySatoException("failed to use printer.",
+                    new Win32Exception(Marshal.GetLastWin32Error()));
         }
 
         public void MoveToX(int x)
@@ -156,22 +138,30 @@ namespace TinySato
             var flatten = operations.SelectMany(x => x).ToArray();
             var raw = Marshal.AllocCoTaskMem(flatten.Length);
             Marshal.Copy(flatten, 0, raw, flatten.Length);
+            const int level = 1; // for not win98
+            var di = new DOCINFOA();
+            di.pDocName = "RAW DOCUMENT";
+            di.pDataType = "raw";
+            int written = 0;
             try
             {
-                int written = 0;
+                if (!StartDocPrinter(printer, level, di))
+                    throw new Win32Exception(Marshal.GetLastWin32Error());
+                if (!StartPagePrinter(printer))
+                    throw new Win32Exception(Marshal.GetLastWin32Error());
                 if (!WritePrinter(printer, raw, flatten.Length, out written))
                     throw new Win32Exception(Marshal.GetLastWin32Error());
                 if (!EndPagePrinter(printer))
                     throw new Win32Exception(Marshal.GetLastWin32Error());
                 if (!EndDocPrinter(printer))
                     throw new Win32Exception(Marshal.GetLastWin32Error());
+                is_sent = true;
             }
             catch (Win32Exception inner)
             {
                 throw new TinySatoException("failed to send operations.", inner);
             }
             finally { Marshal.FreeCoTaskMem(raw); }
-            is_sent = true;
         }
 
         public void Close()
@@ -184,7 +174,7 @@ namespace TinySato
             }
         }
 
-        ~TinySato()
+        ~Printer()
         {
             Dispose(false);
         }
