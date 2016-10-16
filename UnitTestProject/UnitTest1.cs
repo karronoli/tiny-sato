@@ -1,43 +1,82 @@
 ﻿using System;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using TinySato;
 
 namespace UnitTestProject
 {
     [TestClass]
     public class UnitTest1
     {
-        protected TinySato.TinySato sato;
+        protected string printer_name = "T408v";
+
         [TestInitialize]
         public void SetUp()
         {
-            this.sato = new TinySato.TinySato("T408v");
         }
+
         [TestCleanup]
         public void TearDown()
         {
-            this.sato.Close();
         }
 
-        protected byte[] to_bytes(string str)
+        protected int getJobCount()
         {
-            return System.Text.Encoding.ASCII.GetBytes(str);
+            var server = new System.Printing.LocalPrintServer();
+            var queue = server.GetPrintQueue(printer_name);
+            return queue.NumberOfJobs;
         }
 
         [TestMethod]
-        public void TestMethod1()
+        public void GapLabelPrinting()
         {
-            sato.SetPaperSize(424, 400);
-
-            // バーコードの編集
-            // 横位置(100ﾄﾞｯﾄ),縦位置(284ﾄﾞｯﾄ);
-            sato.MoveToY(284);
-            sato.MoveToX(100);
-            // バーコード種類(CODE39),バー幅拡大率(2倍),バー天地寸法(80ﾄﾞｯﾄ)
-            sato.AddBarCodeRatio12(TinySato.Barcodes.CODE39, 2, 80, "SATO123");
-
-            // 枚数を設定(1枚)します
-            sato.Add("Q1");
+            var before = getJobCount();
+            var sato = new Printer(printer_name);
+            sato.SetSensorType(SensorType.Transparent);
+            // 408 印字有効エリア	最大　長さ400mm×幅104mm → 3200 x 832 dot(80dot = 1cm)
+            sato.SetPaperSize(944, 101);
+            sato.SetPageNumber(1);
+            sato.MoveToX(0);
+            sato.MoveToY(0);
+            sato.AddBarCode128(1, 30, "HELLO");
             sato.Send();
+            sato.Close();
+            var after = getJobCount();
+            Assert.AreEqual(before + 1, after);
+        }
+
+        [TestMethod]
+        public void EyeMarkPrinting()
+        {
+            var before = getJobCount();
+            var sato = new Printer(printer_name);
+            sato.SetPaperSize(500, 200);
+            sato.SetSensorType(SensorType.Transparent);
+            sato.SetPageNumber(2);
+            sato.MoveToX(0);
+            sato.MoveToY(0);
+            sato.Add("~A1");
+            sato.AddBarCode128(1, 30, "HELLO");
+            sato.Send();
+            sato.Dispose();
+            var after = getJobCount();
+            Assert.AreEqual(before + 1, after);
+        }
+
+        [TestMethod]
+        public void IgnoreSensorPrinting()
+        {
+            var before = getJobCount();
+            using (var sato = new Printer(printer_name, true))
+            {
+                sato.SetSensorType(SensorType.Ignore);
+                sato.SetPaperSize(944, 101);
+                sato.SetPageNumber(1);
+                sato.MoveToX(0);
+                sato.MoveToY(0);
+                sato.AddBarCode128(1, 30, "HELLO");
+            }
+            var after = getJobCount();
+            Assert.AreEqual(before + 1, after);
         }
     }
 }
