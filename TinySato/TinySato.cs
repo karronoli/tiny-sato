@@ -66,21 +66,33 @@ namespace TinySato
 
         public void MoveToX(int x)
         {
+            if (!(1 <= x && x <= 9999))
+                throw new TinySatoException("Specify 1-9999 number.");
             Add(string.Format("H{0:D4}", x));
         }
 
         public void MoveToY(int y)
         {
+            if (!(1 <= y && y <= 9999))
+                throw new TinySatoException("Specify 1-9999 number.");
             Add(string.Format("V{0:D4}", y));
         }
 
         public void StartPointCorrection(int x, int y)
         {
+            if (!(1 <= x && x <= 9999))
+                throw new TinySatoException("Specify 1-9999 number for x position.");
+            if (!(1 <= y && y <= 999))
+                throw new TinySatoException("Specify 1-999 number for y position.");
             Add(string.Format("A3V{0:D4}H{1:D3}", y, x));
         }
 
         public void SetPaperSize(int height, int width)
         {
+            if (!(1 <= height && height <= 99999))
+                throw new TinySatoException("Specify 1-99999 number for height.");
+            if (!(1 <= width && width <= 9999))
+                throw new TinySatoException("Specify 1-9999 number for width.");
             Add(string.Format("A1V{0:D5}H{1:D4}", height, width));
         }
 
@@ -93,12 +105,16 @@ namespace TinySato
         public void SetPageNumber(uint number_of_pages)
         {
             if (!(1 <= number_of_pages && number_of_pages <= 999999))
-                throw new TinySatoException("Specify 1 or more for number of pages!");
+                throw new TinySatoException("Specify 1-999999 number for pages.");
             Add(string.Format("Q{0:D6}", number_of_pages));
         }
 
         public void AddBarCode128(int narrow_bar_width, int barcode_height, string print_data)
         {
+            if (!(1 <= narrow_bar_width && narrow_bar_width <= 12))
+                throw new TinySatoException("Specify 1-12 number for Narrow Bar Width.");
+            if (!(1 <= barcode_height && barcode_height <= 600))
+                throw new TinySatoException("Specify 1-600 number for Barcode Height.");
             Add(string.Format("BG{0:D2}{1:D3}{2}", narrow_bar_width, barcode_height, print_data));
         }
 
@@ -110,6 +126,9 @@ namespace TinySato
             {
                 bmp1bpp.Save(memory, ImageFormat.Bmp);
                 var bmp = memory.ToArray();
+                if (!(1 <= bmp.Length && bmp.Length <= 99999))
+                    throw new TinySatoException(
+                        string.Format("Reduce bitmap size. current:{0}, max:99999", bmp.Length));
                 Add("GM" + string.Format("{0:D5}", bmp.Length) + ",");
                 operations[operations.Count - 1] =
                     operations[operations.Count - 1].Concat(bmp).ToArray();
