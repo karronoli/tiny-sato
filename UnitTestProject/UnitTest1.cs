@@ -1,6 +1,7 @@
 ﻿using System;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using TinySato;
+using System.Drawing;
 
 namespace UnitTestProject
 {
@@ -33,11 +34,33 @@ namespace UnitTestProject
             var sato = new Printer(printer_name);
             sato.SetSensorType(SensorType.Transparent);
             // 408 印字有効エリア	最大　長さ400mm×幅104mm → 3200 x 832 dot(80dot = 1cm)
-            sato.SetPaperSize(944, 101);
+            sato.SetPaperSize(944, 640);
             sato.SetPageNumber(1);
-            sato.MoveToX(0);
-            sato.MoveToY(0);
+            sato.MoveToX(100);
+            sato.MoveToY(100);
             sato.AddBarCode128(1, 30, "HELLO");
+            using (var bitmap = new Bitmap(944, 640))
+            {
+                using (var font = new Font("VL Gothic", 50))
+                using (var g = Graphics.FromImage(bitmap))
+                {
+                    // Draw by black on white background.
+                    var overall = new Rectangle(0, 0, bitmap.Width, bitmap.Height);
+                    g.FillRectangle(Brushes.White, overall);
+                    g.DrawPie(Pens.Black, 60, 10, 80, 80, 30, 300);
+                    var textbox = new Rectangle(10, 10, bitmap.Width, bitmap.Height);
+                    var text = "SBPL😀From TinySato！";
+                    using (var sf = new StringFormat())
+                    {
+                        sf.Alignment = StringAlignment.Center;
+                        sf.LineAlignment = StringAlignment.Center;
+                        g.DrawString(text, font, Brushes.Black, textbox, sf);
+                    }
+                }
+                sato.MoveToX(0);
+                sato.MoveToY(0);
+                sato.AddBitmap(bitmap);
+            }
             sato.Send();
             sato.Close();
             var after = getJobCount();

@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.ComponentModel;
+using System.Drawing;
+using System.Drawing.Imaging;
 
 namespace TinySato
 {
@@ -100,9 +102,18 @@ namespace TinySato
             Add(string.Format("BG{0:D2}{1:D3}{2}", narrow_bar_width, barcode_height, print_data));
         }
 
-        public void AddBMP()
+        public void AddBitmap(Bitmap original)
         {
-            throw new NotImplementedException();
+            var region = new Rectangle(0, 0, original.Width, original.Height);
+            using (var bmp1bpp = original.Clone(region, PixelFormat.Format1bppIndexed))
+            using (var memory = new System.IO.MemoryStream())
+            {
+                bmp1bpp.Save(memory, ImageFormat.Bmp);
+                var bmp = memory.ToArray();
+                Add("GM" + string.Format("{0:D5}", bmp.Length) + ",");
+                operations[operations.Count - 1] =
+                    operations[operations.Count - 1].Concat(bmp).ToArray();
+            }
         }
 
         public void SetSensorType(SensorType type)
