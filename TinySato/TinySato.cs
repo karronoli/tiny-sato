@@ -27,6 +27,11 @@ namespace TinySato
         Ignore = 2
     }
 
+    public enum DensitySpec
+    {
+        A, B, C, D, E, F
+    }
+
     public class Printer : IDisposable
     {
 
@@ -79,6 +84,13 @@ namespace TinySato
         }
 
         public void StartPointCorrection(int x, int y)
+        public void SetDensity(int density, DensitySpec spec)
+        {
+            if (!(1 <= density && density <= 5))
+                throw new TinySatoException("Specify 1-5 density");
+            Add(string.Format("#E{0:D1}", density, spec.ToString("F")));
+        }
+
         {
             if (!(1 <= x && x <= 9999))
                 throw new TinySatoException("Specify 1-9999 dots for x position.");
