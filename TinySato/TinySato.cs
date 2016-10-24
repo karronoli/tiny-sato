@@ -83,7 +83,13 @@ namespace TinySato
             Add(string.Format("V{0:D4}", y));
         }
 
-        public void StartPointCorrection(int x, int y)
+        public void SetGapSizeBetweenLabels(int y)
+        {
+            if (!(0 <= y && y <= 64))
+                throw new TinySatoException("Specify 0-64 dots.");
+            Add(string.Format("TG{0:D2}", y));
+        }
+
         public void SetDensity(int density, DensitySpec spec)
         {
             if (!(1 <= density && density <= 5))
@@ -98,6 +104,7 @@ namespace TinySato
             Add(string.Format("CS{0:D2}", speed));
         }
 
+        public void SetStartPosition(int x, int y)
         {
             if (!(1 <= x && x <= 9999))
                 throw new TinySatoException("Specify 1-9999 dots for x position.");
