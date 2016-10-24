@@ -27,6 +27,11 @@ namespace TinySato
         Ignore = 2
     }
 
+    public enum DensitySpec
+    {
+        A, B, C, D, E, F
+    }
+
     public class Printer : IDisposable
     {
 
@@ -38,19 +43,19 @@ namespace TinySato
         const byte STX = 0x02, ESC = 0x1b, ETX = 0x03;
 
         [DllImport("winspool.Drv", EntryPoint = "OpenPrinterA", SetLastError = true, CharSet = CharSet.Ansi, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
-        public static extern bool OpenPrinter([MarshalAs(UnmanagedType.LPStr)] string szPrinter, out IntPtr hPrinter, IntPtr pd);
+        protected static extern bool OpenPrinter([MarshalAs(UnmanagedType.LPStr)] string szPrinter, out IntPtr hPrinter, IntPtr pd);
         [DllImport("winspool.Drv", EntryPoint = "ClosePrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
-        public static extern bool ClosePrinter(IntPtr hPrinter);
+        protected static extern bool ClosePrinter(IntPtr hPrinter);
         [DllImport("winspool.Drv", EntryPoint = "StartDocPrinterA", SetLastError = true, CharSet = CharSet.Ansi, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
-        public static extern bool StartDocPrinter(IntPtr hPrinter, Int32 level, [In, MarshalAs(UnmanagedType.LPStruct)] DOCINFOA di);
+        protected static extern bool StartDocPrinter(IntPtr hPrinter, Int32 level, [In, MarshalAs(UnmanagedType.LPStruct)] DOCINFOA di);
         [DllImport("winspool.Drv", EntryPoint = "EndDocPrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
-        public static extern bool EndDocPrinter(IntPtr hPrinter);
+        protected static extern bool EndDocPrinter(IntPtr hPrinter);
         [DllImport("winspool.Drv", EntryPoint = "StartPagePrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
-        public static extern bool StartPagePrinter(IntPtr hPrinter);
+        protected static extern bool StartPagePrinter(IntPtr hPrinter);
         [DllImport("winspool.Drv", EntryPoint = "EndPagePrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
-        public static extern bool EndPagePrinter(IntPtr hPrinter);
+        protected static extern bool EndPagePrinter(IntPtr hPrinter);
         [DllImport("winspool.Drv", EntryPoint = "WritePrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
-        public static extern bool WritePrinter(IntPtr hPrinter, IntPtr pBytes, Int32 dwCount, out Int32 dwWritten);
+        protected static extern bool WritePrinter(IntPtr hPrinter, IntPtr pBytes, Int32 dwCount, out Int32 dwWritten);
 
         public Printer(string PrinterName, bool send_at_dispose_if_not_yet_sent) : this(PrinterName)
         {
@@ -67,33 +72,54 @@ namespace TinySato
         public void MoveToX(int x)
         {
             if (!(1 <= x && x <= 9999))
-                throw new TinySatoException("Specify 1-9999 number.");
+                throw new TinySatoException("Specify 1-9999 dots.");
             Add(string.Format("H{0:D4}", x));
         }
 
         public void MoveToY(int y)
         {
             if (!(1 <= y && y <= 9999))
-                throw new TinySatoException("Specify 1-9999 number.");
+                throw new TinySatoException("Specify 1-9999 dots.");
             Add(string.Format("V{0:D4}", y));
         }
 
-        public void StartPointCorrection(int x, int y)
+        public void SetGapSizeBetweenLabels(int y)
+        {
+            if (!(0 <= y && y <= 64))
+                throw new TinySatoException("Specify 0-64 dots.");
+            Add(string.Format("TG{0:D2}", y));
+        }
+
+        public void SetDensity(int density, DensitySpec spec)
+        {
+            if (!(1 <= density && density <= 5))
+                throw new TinySatoException("Specify 1-5 density");
+            Add(string.Format("#E{0:D1}", density, spec.ToString("F")));
+        }
+
+        public void SetSpeed(int speed)
+        {
+            if (!(1 <= speed && speed <= 5))
+                throw new TinySatoException("Specify 1-5 speed");
+            Add(string.Format("CS{0:D2}", speed));
+        }
+
+        public void SetStartPosition(int x, int y)
         {
             if (!(1 <= x && x <= 9999))
-                throw new TinySatoException("Specify 1-9999 number for x position.");
+                throw new TinySatoException("Specify 1-9999 dots for x position.");
             if (!(1 <= y && y <= 999))
-                throw new TinySatoException("Specify 1-999 number for y position.");
+                throw new TinySatoException("Specify 1-999 dots for y position.");
             Add(string.Format("A3V{0:D4}H{1:D3}", y, x));
         }
 
         public void SetPaperSize(int height, int width)
         {
-            if (!(1 <= height && height <= 99999))
-                throw new TinySatoException("Specify 1-99999 number for height.");
+            if (!(1 <= height && height <= 9999))
+                throw new TinySatoException("Specify 1-9999 dots for height.");
             if (!(1 <= width && width <= 9999))
-                throw new TinySatoException("Specify 1-9999 number for width.");
-            Add(string.Format("A1V{0:D5}H{1:D4}", height, width));
+                throw new TinySatoException("Specify 1-9999 dots for width.");
+            Add(string.Format("A1{0:D4}{1:D4}", height, width));
         }
 
         public void SetCalendar(DateTime dt)
@@ -105,16 +131,16 @@ namespace TinySato
         public void SetPageNumber(uint number_of_pages)
         {
             if (!(1 <= number_of_pages && number_of_pages <= 999999))
-                throw new TinySatoException("Specify 1-999999 number for pages.");
+                throw new TinySatoException("Specify 1-999999 pages.");
             Add(string.Format("Q{0:D6}", number_of_pages));
         }
 
         public void AddBarCode128(int narrow_bar_width, int barcode_height, string print_data)
         {
             if (!(1 <= narrow_bar_width && narrow_bar_width <= 12))
-                throw new TinySatoException("Specify 1-12 number for Narrow Bar Width.");
+                throw new TinySatoException("Specify 1-12 dot for Narrow Bar Width.");
             if (!(1 <= barcode_height && barcode_height <= 600))
-                throw new TinySatoException("Specify 1-600 number for Barcode Height.");
+                throw new TinySatoException("Specify 1-600 dot for Barcode Height.");
             Add(string.Format("BG{0:D2}{1:D3}{2}", narrow_bar_width, barcode_height, print_data));
         }
 
