@@ -91,6 +91,13 @@ namespace TinySato
             Add(string.Format("#E{0:D1}", density, spec.ToString("F")));
         }
 
+        public void SetSpeed(int speed)
+        {
+            if (!(1 <= speed && speed <= 5))
+                throw new TinySatoException("Specify 1-5 speed");
+            Add(string.Format("CS{0:D2}", speed));
+        }
+
         {
             if (!(1 <= x && x <= 9999))
                 throw new TinySatoException("Specify 1-9999 dots for x position.");
