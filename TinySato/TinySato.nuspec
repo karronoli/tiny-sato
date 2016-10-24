@@ -1,18 +1,21 @@
 <?xml version="1.0"?>
 <package >
   <metadata>
-    <id>TinySato</id>
-    <version>1.0.3</version>
+    <id>$Id$</id>
+    <version>$Version$</version>
     <authors>karronoli</authors>
     <owners>karronoli</owners>
     <licenseUrl>https://raw.githubusercontent.com/karronoli/tiny-sato/master/LICENSE</licenseUrl>
     <projectUrl>https://github.com/karronoli/tiny-sato</projectUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
-    <description>Sato Barcode Printer Language(SBPL) wrapper</description>
+    <description>$description$</description>
     <releaseNotes></releaseNotes>
-    <copyright>Copyright 2016</copyright>
+    <copyright>$copyright$</copyright>
     <tags>SATO SBPL Barcode Printer wrapper</tags>
     <dependencies>
     </dependencies>
   </metadata>
+  <files>
+    <file src="bin\Release\$Id$.dll" target="lib" />
+  </files>
 </package>
