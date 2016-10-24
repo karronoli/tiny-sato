@@ -90,6 +90,7 @@ namespace UnitTestProject
         public void EyeMarkPrinting()
         {
             var before = getJobCount();
+            var paper_gap_mm = 2.0;
             var page_number = 1;
             var sato = new Printer(printer_name);
             sato.SetPaperSize(500, 200);
