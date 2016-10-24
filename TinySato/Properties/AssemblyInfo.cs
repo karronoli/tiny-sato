@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 // アセンブリに関連付けられている情報を変更するには、
 // これらの属性値を変更してください。
 [assembly: AssemblyTitle("TinySato")]
-[assembly: AssemblyDescription("Sato Barcode Printer Language(SBPL) wrapper")]
+[assembly: AssemblyDescription("You can construct and send SBPL packet to Sato printer. Sato printer is needed to recognized by windows driver.")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
 [assembly: AssemblyProduct("TinySato")]
