@@ -37,7 +37,6 @@ namespace TinySato
 
         private bool disposed = false;
         protected bool send_at_dispose_if_not_yet_sent = false;
-        protected bool is_sent = false;
         protected IntPtr printer = new IntPtr();
         protected List<byte[]> operations = new List<byte[]> { };
         const byte STX = 0x02, ESC = 0x1b, ETX = 0x03;
@@ -207,7 +206,7 @@ namespace TinySato
                     throw new Win32Exception(Marshal.GetLastWin32Error());
                 if (!EndDocPrinter(printer))
                     throw new Win32Exception(Marshal.GetLastWin32Error());
-                is_sent = true;
+                this.operations.Clear();
             }
             catch (Win32Exception inner)
             {
@@ -242,7 +241,7 @@ namespace TinySato
             if (disposed)
                 return;
 
-            if (!is_sent && send_at_dispose_if_not_yet_sent)
+            if (this.operations.Count > 0 && send_at_dispose_if_not_yet_sent)
             {
                 this.Send();
             }
