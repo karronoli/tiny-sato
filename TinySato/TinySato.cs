@@ -143,6 +143,19 @@ namespace TinySato
             Add(string.Format("BG{0:D2}{1:D3}{2}", narrow_bar_width, barcode_height, print_data));
         }
 
+        public void AddJAN13(int thin_bar_width, int barcode_top, string print_data)
+        {
+            if (!(1 <= thin_bar_width && thin_bar_width <= 12))
+                throw new TinySatoException("Specify 1-12 dot for Narrow Bar Width.");
+            if (!(1 <= barcode_top && barcode_top <= 600))
+                throw new TinySatoException("Specify 1-600 dot for Barcode Height.");
+            if (!(11 <= print_data.Length && print_data.Length <= 13))
+                throw new TinySatoException("Correct barcode data length. valid range: 11-13");
+            if (!print_data.All(char.IsDigit))
+                throw new TinySatoException("Correct character type of barcode data.");
+            Add(string.Format("BD3{0:D2}{1:D3}{2}", thin_bar_width, barcode_top, print_data));
+        }
+
         public void AddBitmap(Bitmap original)
         {
             var region = new Rectangle(0, 0, original.Width, original.Height);
