@@ -16,5 +16,7 @@ install:
   - cd LespritV-v12_0_0_50-64bit\LespritV\Driver64
   - echo rundll32
   - echo rundll33
+  - rundll32 printui.dll PrintUIEntry /if /f LES400V.INF /r FILE: /m "SATO Lesprit408v" /v 2 /b T408v
+  - for /f "delims=|" %i in ('echo rundll32 printui.dll PrintUIEntry /if /f LES400V.INF /r FILE: /m "SATO Lesprit408v" /v 2 /b T408v') do (echo %i && %i)
   - echo r undll32
   - echo Hello2
