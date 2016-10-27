@@ -6,15 +6,6 @@ branches:
 os: Visual Studio 2015
 configuration: Release
 platform: Any CPU
-init:
-- cmd: >-
-    pushd %VS140COMNTOOLS%
-    VsMSBuildCmd.bat
-    popd
-    wget "http://www.sato.co.jp/download/manual/LespritV-v12_0_0_50-64bit.zip"
-    7z x LespritV-v12_0_0_50-64bit.zip
-    cd LespritV-v12_0_0_50-64bit\LespritV-v12_0_0_50-64bit\LespritV\Driver64
-    rundll32 printui.dll PrintUIEntry /if /f LES400V.INF /r LPT1: /m "SATO Lesprit408v" /v 2 /b T408v
 nuget:
   disable_publish_on_pr: true
 before_build:
@@ -23,6 +14,11 @@ build:
   project: TinySato.sln
   publish_nuget: true
   verbosity: minimal
+before_test:
+- wget "http://www.sato.co.jp/download/manual/LespritV-v12_0_0_50-64bit.zip"
+- 7z x LespritV-v12_0_0_50-64bit.zip
+- cd LespritV-v12_0_0_50-64bit\LespritV-v12_0_0_50-64bit\LespritV\Driver64
+- rundll32 printui.dll PrintUIEntry /if /f LES400V.INF /r LPT1: /m "SATO Lesprit408v" /v 2 /b T408v
 deploy:
 - provider: NuGet
   api_key:
