@@ -12,6 +12,5 @@ install:
   - ps: Invoke-WebRequest -Uri 'http://www.sato.co.jp/download/manual/LespritV-v12_0_0_50-64bit.zip' -OutFile 'LespritV-v12_0_0_50-64bit.zip'
   - 7z x LespritV-v12_0_0_50-64bit.zip
   - cd LespritV-v12_0_0_50-64bit\LespritV\Driver64
-  - set HOGE=rundll32
-  - %HOGE% printui.dll PrintUIEntry /if /f LES400V.INF /r FILE: /m "SATO Lesprit408v" /v 2 /b T408v
+  - cmd /c rundll32 printui.dll PrintUIEntry /if /f LES400V.INF /r FILE: /m "SATO Lesprit408v" /v 2 /b T408v
   - echo Hello2
