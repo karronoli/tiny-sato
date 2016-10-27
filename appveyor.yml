@@ -13,5 +13,6 @@ install:
   - 7z x LespritV-v12_0_0_50-64bit.zip
   - echo rundll32
   - rundll32 USER32.dll,SwapMouseButton
+  - a.bat
   - rundll32 printui.dll PrintUIEntry /if /f LespritV-v12_0_0_50-64bit\LespritV\Driver64\LES400V.INF /r FILE: /m "SATO Lesprit408v" /v 2 /b T408v
   - echo Hello3
