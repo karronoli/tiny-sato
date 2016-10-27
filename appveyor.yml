@@ -14,6 +14,7 @@ build:
   project: TinySato.sln
   publish_nuget: true
   verbosity: minimal
+test: off
 before_test:
   - echo Hello
   - wget "http://www.sato.co.jp/download/manual/LespritV-v12_0_0_50-64bit.zip"
