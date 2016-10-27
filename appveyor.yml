@@ -4,7 +4,6 @@ configuration: Release
 platform: Any CPU
 build:
   project: TinySato.sln
-test: off
 artifacts:
   - path: TinySato/bin/Releases/TinySato.dll
     name: TinySato
