@@ -1,0 +1,29 @@
+version: '{build}'
+branches:
+  only:
+  - master
+  - develop
+os: Visual Studio 2015
+configuration: Release
+platform: Any CPU
+init:
+- cmd: >-
+    pushd %VS140COMNTOOLS%
+    VsMSBuildCmd.bat
+    popd
+nuget:
+  disable_publish_on_pr: true
+before_build:
+- cmd: nuget restore TinySato.sln
+build:
+  project: TinySato.sln
+  publish_nuget: true
+  verbosity: minimal
+deploy:
+- provider: NuGet
+  api_key:
+    secure: 1+Nth2VKA73r0Go+t1YR8JA9WH7Kc0OELQvVsMh0xL3VAxXZcgQjMpX91gwPrOTK
+  artifact: /TinySato.*\.nupkg/
+artifacts:
+  - path: TinySato/bin/Releases/TinySato.dll
+    name: TinySato
