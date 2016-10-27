@@ -10,6 +10,7 @@ namespace UnitTestProject
     {
         protected string printer_name = "T408v";
         protected const bool DEBUG = false;
+        protected Printer sato;
 
         const double inch2mm = 25.4;
         const double dpi = 203;
@@ -19,11 +20,15 @@ namespace UnitTestProject
         [TestInitialize]
         public void SetUp()
         {
+            sato = new Printer(printer_name);
+            sato.SetDensity(3, DensitySpec.A);
+            sato.SetSpeed(4);
         }
 
         [TestCleanup]
         public void TearDown()
         {
+            sato.Dispose();
         }
 
         protected int getJobCount()
@@ -46,6 +51,25 @@ namespace UnitTestProject
         }
 
         [TestMethod]
+        public void JAN13()
+        {
+            var before = getJobCount();
+            var barcode = "1234567890128";
+
+            sato.SetSensorType(SensorType.Transparent);
+            sato.SetPaperSize((int)(80 * mm2dot), (int)(104 * mm2dot));
+
+            sato.MoveToX(80);
+            sato.MoveToY(80);
+            sato.AddJAN13(3, 70, barcode);
+
+            sato.SetPageNumber(1);
+            sato.Send();
+
+            var after = getJobCount();
+            Assert.AreEqual(before + 1, after);
+        }
+
         public void GapLabelPrinting()
         {
             var before = getJobCount();
