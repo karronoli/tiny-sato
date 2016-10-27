@@ -9,7 +9,7 @@ namespace UnitTestProject
     public class UnitTest1
     {
         protected string printer_name = "T408v";
-        protected const bool DEBUG = false;
+        protected Printer sato;
 
         const double inch2mm = 25.4;
         const double dpi = 203;
@@ -19,11 +19,15 @@ namespace UnitTestProject
         [TestInitialize]
         public void SetUp()
         {
+            sato = new Printer(printer_name);
+            sato.SetDensity(3, DensitySpec.A);
+            sato.SetSpeed(4);
         }
 
         [TestCleanup]
         public void TearDown()
         {
+            sato.Dispose();
         }
 
         protected int getJobCount()
@@ -37,51 +41,82 @@ namespace UnitTestProject
         {
             var line_width_mm = line_width * dot2mm;
             var quiet_zone = Math.Max(0.54, line_width_mm * 10);
-            // 	refer to JIS X 0504:2003 
+            // 	refer to JIS X 0504:2003
             return 11 * line_width_mm // start
-                + 11 * line_width_mm // check
                 + 11 * barcode.Length * line_width_mm // data
+                + 11 * line_width_mm // check
                 + 13 * line_width_mm // stop
                 + (no_quiet_zone ? 0 : 2 * quiet_zone);
+        }
+
+        [TestMethod]
+        public void MultiJob()
+        {
+            var before = getJobCount();
+            var a = new Printer(printer_name, true);
+            var b = new Printer(printer_name);
+            // random operations
+            b.Send(); // send <A><Z>, job +1
+            a.SetCalendar(DateTime.Now); // To add job, need a operation at least. 
+            a.Dispose();
+            b.Close();
+            Assert.AreEqual(before + 2, getJobCount());
+        }
+
+        [TestMethod]
+        public void JAN13()
+        {
+            var before = getJobCount();
+            var barcode = "1234567890128";
+
+            sato.SetSensorType(SensorType.Transparent);
+            sato.SetPaperSize((int)(80 * mm2dot), (int)(104 * mm2dot));
+
+            sato.MoveToX(80);
+            sato.MoveToY(80);
+            sato.AddJAN13(3, 70, barcode);
+
+            sato.SetPageNumber(1);
+            sato.Send();
+
+            var after = getJobCount();
+            Assert.AreEqual(before + 1, after);
         }
 
         [TestMethod]
         public void GapLabelPrinting()
         {
             var before = getJobCount();
-            var sato = new Printer(printer_name);
-            sato.SetDensity(3, DensitySpec.A);
-            sato.SetSpeed(4);
+            var barcode = "A-12-345";
+            int width = (int)(104 * mm2dot), height = (int)(80 * mm2dot);
+
             sato.SetSensorType(SensorType.Transparent);
-            // 408 印字有効エリア	最大　長さ400mm×幅104mm → 3200 x 832 dot(80dot = 1cm)
-            sato.SetPaperSize(944, 640);
+            sato.SetPaperSize(height, width);
             sato.SetPageNumber(1);
-            sato.MoveToX(100);
-            sato.MoveToY(100);
-            sato.AddBarCode128(1, 30, "HELLO");
-            using (var bitmap = new Bitmap(944, 640))
+
+            sato.MoveToX(480);
+            sato.MoveToY(400);
+            sato.AddBarCode128(1, 100, barcode);
+
+            using (var font = new Font("Consolas", 90))
+            using (var bitmap = new Bitmap(width, font.Height))
+            using (var g = Graphics.FromImage(bitmap))
+            using (var sf = new StringFormat())
             {
-                using (var font = new Font("VL Gothic", 50))
-                using (var g = Graphics.FromImage(bitmap))
-                {
-                    // Draw by black on white background.
-                    var overall = new Rectangle(0, 0, bitmap.Width, bitmap.Height);
-                    g.FillRectangle(Brushes.White, overall);
-                    g.DrawPie(Pens.Black, 60, 10, 80, 80, 30, 300);
-                    var textbox = new Rectangle(10, 10, bitmap.Width, bitmap.Height);
-                    var text = "SBPL😀From TinySato！";
-                    using (var sf = new StringFormat())
-                    {
-                        sf.Alignment = StringAlignment.Center;
-                        sf.LineAlignment = StringAlignment.Center;
-                        g.DrawString(text, font, Brushes.Black, textbox, sf);
-                    }
-                }
+                // Draw by black on white background.
+                var box = new Rectangle(0, 0, bitmap.Width, bitmap.Height);
+                g.FillRectangle(Brushes.White, box);
+
+                sf.Alignment = StringAlignment.Center;
+                sf.LineAlignment = StringAlignment.Center;
+                g.DrawString(barcode, font, Brushes.Black, box, sf);
+
+                sato.MoveToX(1);
+                sato.MoveToY(1);
                 sato.AddBitmap(bitmap);
-                if (DEBUG) bitmap.Save("tinysato-gap.png");
             }
             sato.Send();
-            sato.Close();
+
             var after = getJobCount();
             Assert.AreEqual(before + 1, after);
         }
@@ -90,20 +125,24 @@ namespace UnitTestProject
         public void EyeMarkPrinting()
         {
             var before = getJobCount();
+            var barcode = "1234567890ABCDEF";
+            var paper_width_mm = 53.0;
+            var paper_height_mm = 22.0;
             var paper_gap_mm = 2.0;
-            var page_number = 1;
-            var sato = new Printer(printer_name);
-            sato.SetPaperSize(500, 200);
-            sato.AddBarCode128(1, 30, "HELLO");
-            sato.SetDensity(3, DensitySpec.A);
-            sato.SetSpeed(4);
-            sato.SetGapSizeBetweenLabels((int)(paper_gap_mm * mm2dot));
+
             sato.SetSensorType(SensorType.Reflection);
-            sato.SetPageNumber((uint)page_number);
+            sato.SetGapSizeBetweenLabels((int)(paper_gap_mm * mm2dot));
+            sato.SetPaperSize((int)(paper_height_mm * mm2dot), (int)(paper_width_mm * mm2dot));
+
+            sato.MoveToX(1);
+            sato.MoveToY(1);
+            sato.AddBarCode128(1, 50, barcode);
+
+            sato.SetPageNumber(1);
             sato.Send();
-            sato.Dispose();
+
             var after = getJobCount();
-            Assert.AreEqual(before + page_number, after);
+            Assert.AreEqual(before + 1, after);
         }
 
         [TestMethod]
