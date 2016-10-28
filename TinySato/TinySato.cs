@@ -230,7 +230,7 @@ namespace TinySato
 
         public void Close()
         {
-            if (!ClosePrinter(printer))
+            if (printer != IntPtr.Zero && !ClosePrinter(printer))
             {
                 var code = Marshal.GetLastWin32Error();
                 var inner = new Win32Exception(code);
