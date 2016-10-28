@@ -1,17 +1,34 @@
 version: '{build}'
-os: unstable
+os: Visual Studio 2015
 configuration: Release
 platform: Any CPU
+assembly_info:
+  patch: true
+  file: '**\AssemblyInfo.*'
+  assembly_version: '{version}'
+  assembly_file_version: '{version}'
+  assembly_informational_version: '{version}'
 build:
   project: TinySato.sln
 artifacts:
-  - path: TinySato/bin/Releases/TinySato.dll
+  - path: TinySato\bin\Releases\TinySato.dll
     name: TinySato
 install:
-  - echo Hello1
   - ps: Invoke-WebRequest -Uri 'http://www.sato.co.jp/download/manual/LespritV-v12_0_0_50-64bit.zip' -OutFile 'LespritV-v12_0_0_50-64bit.zip'
   - 7z x LespritV-v12_0_0_50-64bit.zip
   - certutil -addstore TrustedPublisher sato.cer
-  - a.bat
-  - rundll32 printui.dll PrintUIEntry /if /f LespritV-v12_0_0_50-64bit\LespritV\Driver64\LES400V.INF /r LPT1: /m "SATO Lesprit408v" /v 2 /b T408v
-  - echo Hello3
+  - 'rundll32 printui.dll PrintUIEntry /if /f LespritV-v12_0_0_50-64bit\LespritV\Driver64\LES400V.INF /r LPT1: /m "SATO Lesprit408v" /v 2 /b T408v'
+
+deploy:
+  release: tinysato-v$(appveyor_build_version)
+  description: 'Release by appveyor'
+  provider: GitHub
+  auth_token:
+    secure: 51CWzgazGObQuECwxcfMhogo5L/2k9Eu3sn9aWx6tS/YYg/Sz3egOG7LRYspPS1m
+  artifact: /.*\.nupkg/
+  draft: true
+  prerelease: true
+  on:
+#    branch: master
+    appveyor_repo_tag: true
+...
