@@ -10,6 +10,8 @@ assembly_info:
   assembly_informational_version: '{version}'
 build:
   project: TinySato.sln
+  publish_nuget: true
+  verbosity: minimal
 artifacts:
   - path: TinySato\bin\Release\TinySato.dll
     name: TinySato
