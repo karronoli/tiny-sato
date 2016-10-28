@@ -11,7 +11,7 @@ assembly_info:
 build:
   project: TinySato.sln
 artifacts:
-  - path: TinySato\bin\Releases\TinySato.dll
+  - path: TinySato\bin\Release\TinySato.dll
     name: TinySato
 install:
   - ps: Invoke-WebRequest -Uri 'http://www.sato.co.jp/download/manual/LespritV-v12_0_0_50-64bit.zip' -OutFile 'LespritV-v12_0_0_50-64bit.zip'
