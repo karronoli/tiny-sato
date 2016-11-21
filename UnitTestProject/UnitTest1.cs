@@ -78,7 +78,7 @@ namespace UnitTestProject
 
             sato.MoveToX(80);
             sato.MoveToY(80);
-            sato.AddJAN13(3, 70, barcode);
+            sato.Barcode.AddJAN13(3, 70, barcode);
 
             sato.SetPageNumber(1);
             sato.Send();
@@ -100,7 +100,7 @@ namespace UnitTestProject
 
             sato.MoveToX(480);
             sato.MoveToY(400);
-            sato.AddBarCode128(1, 100, barcode);
+            sato.Barcode.AddCODE128(1, 100, barcode);
 
             using (var font = new Font("Consolas", 90))
             using (var bitmap = new Bitmap(width, font.Height))
@@ -140,7 +140,7 @@ namespace UnitTestProject
 
             sato.MoveToX(1);
             sato.MoveToY(1);
-            sato.AddBarCode128(1, 50, barcode);
+            sato.Barcode.AddCODE128(1, 50, barcode);
 
             sato.SetPageNumber(1);
             sato.Send();
@@ -160,7 +160,7 @@ namespace UnitTestProject
                 sato.SetPageNumber(1);
                 sato.MoveToX(1);
                 sato.MoveToY(1);
-                sato.AddBarCode128(1, 30, "HELLO");
+                sato.Barcode.AddCODE128(1, 30, "HELLO");
             }
             var after = getJobCount();
             Assert.AreEqual(before + 1, after);
