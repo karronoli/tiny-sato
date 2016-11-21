@@ -39,6 +39,7 @@ namespace TinySato
         protected bool send_at_dispose_if_not_yet_sent = false;
         protected IntPtr printer = new IntPtr();
         protected List<byte[]> operations = new List<byte[]> { };
+        public Barcode Barcode { get; }
         const byte STX = 0x02, ESC = 0x1b, ETX = 0x03;
 
         [DllImport("winspool.Drv", EntryPoint = "OpenPrinterA", SetLastError = true, CharSet = CharSet.Ansi, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
@@ -66,6 +67,7 @@ namespace TinySato
             if (!OpenPrinter(name.Normalize(), out printer, IntPtr.Zero))
                 throw new TinySatoException("failed to use printer.",
                     new Win32Exception(Marshal.GetLastWin32Error()));
+            this.Barcode = new Barcode(this);
         }
 
         public void MoveToX(int x)
@@ -132,28 +134,6 @@ namespace TinySato
             if (!(1 <= number_of_pages && number_of_pages <= 999999))
                 throw new TinySatoException("Specify 1-999999 pages.");
             Add(string.Format("Q{0:D6}", number_of_pages));
-        }
-
-        public void AddBarCode128(int narrow_bar_width, int barcode_height, string print_data)
-        {
-            if (!(1 <= narrow_bar_width && narrow_bar_width <= 12))
-                throw new TinySatoException("Specify 1-12 dot for Narrow Bar Width.");
-            if (!(1 <= barcode_height && barcode_height <= 600))
-                throw new TinySatoException("Specify 1-600 dot for Barcode Height.");
-            Add(string.Format("BG{0:D2}{1:D3}{2}", narrow_bar_width, barcode_height, print_data));
-        }
-
-        public void AddJAN13(int thin_bar_width, int barcode_top, string print_data)
-        {
-            if (!(1 <= thin_bar_width && thin_bar_width <= 12))
-                throw new TinySatoException("Specify 1-12 dot for Narrow Bar Width.");
-            if (!(1 <= barcode_top && barcode_top <= 600))
-                throw new TinySatoException("Specify 1-600 dot for Barcode Height.");
-            if (!(11 <= print_data.Length && print_data.Length <= 13))
-                throw new TinySatoException("Correct barcode data length. valid range: 11-13");
-            if (!print_data.All(char.IsDigit))
-                throw new TinySatoException("Correct character type of barcode data.");
-            Add(string.Format("BD3{0:D2}{1:D3}{2}", thin_bar_width, barcode_top, print_data));
         }
 
         public void AddBitmap(Bitmap original)
@@ -266,16 +246,5 @@ namespace TinySato
             this.Close();
             disposed = true;
         }
-    }
-
-    public class TinySatoException : Exception
-    {
-        public TinySatoException() { }
-
-        public TinySatoException(string message)
-            : base(message) { }
-
-        public TinySatoException(string message, Exception inner)
-            : base(message, inner) { }
     }
 }
