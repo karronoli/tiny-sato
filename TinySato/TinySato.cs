@@ -248,15 +248,4 @@ namespace TinySato
             disposed = true;
         }
     }
-
-    public class TinySatoException : Exception
-    {
-        public TinySatoException() { }
-
-        public TinySatoException(string message)
-            : base(message) { }
-
-        public TinySatoException(string message, Exception inner)
-            : base(message, inner) { }
-    }
 }
