@@ -60,7 +60,6 @@ namespace TinySato
         public Printer(string PrinterName, bool send_at_dispose_if_not_yet_sent) : this(PrinterName)
         {
             this.send_at_dispose_if_not_yet_sent = send_at_dispose_if_not_yet_sent;
-            this.Barcode = new Barcode(this);
         }
 
         public Printer(string name)
@@ -247,16 +246,5 @@ namespace TinySato
             this.Close();
             disposed = true;
         }
-    }
-
-    public class TinySatoException : Exception
-    {
-        public TinySatoException() { }
-
-        public TinySatoException(string message)
-            : base(message) { }
-
-        public TinySatoException(string message, Exception inner)
-            : base(message, inner) { }
     }
 }
