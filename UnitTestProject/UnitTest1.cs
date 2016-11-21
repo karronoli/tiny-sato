@@ -19,10 +19,6 @@ namespace UnitTestProject
         [TestInitialize]
         public void SetUp()
         {
-            foreach (string s in System.Drawing.Printing.PrinterSettings.InstalledPrinters)
-            {
-                System.Console.WriteLine(s);
-            }
             sato = new Printer(printer_name);
             sato.SetDensity(3, DensitySpec.A);
             sato.SetSpeed(4);
