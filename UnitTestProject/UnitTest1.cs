@@ -126,19 +126,24 @@ namespace UnitTestProject
         {
             var before = getJobCount();
             var barcode = "1234567890ABCDEF";
-            var paper_width_mm = 53.0;
-            var paper_height_mm = 22.0;
+            var paper_width_mm = 50.0;
+            var paper_height_mm = 20.0;
             var paper_gap_mm = 2.0;
+            var paper_offset_x_mm = 1.0;
+            var paper_offset_y_mm = 0.8;
 
             sato.SetSensorType(SensorType.Reflection);
-            sato.SetGapSizeBetweenLabels((int)(paper_gap_mm * mm2dot));
-            sato.SetPaperSize((int)(paper_height_mm * mm2dot), (int)(paper_width_mm * mm2dot));
+            sato.SetGapSizeBetweenLabels(
+                (int)Math.Round(paper_gap_mm * mm2dot));
+            sato.SetPaperSize(
+                (int)Math.Round(paper_height_mm * mm2dot),
+                (int)Math.Round(paper_width_mm * mm2dot));
             sato.SetStartPosition(
                 (int)Math.Round(paper_offset_x_mm * mm2dot),
                 (int)Math.Round(paper_offset_y_mm * mm2dot));
 
-            sato.MoveToX(1);
-            sato.MoveToY(1);
+            sato.MoveToX(80);
+            sato.MoveToY(80);
             sato.Barcode.AddCODE128(1, 50, barcode);
 
             sato.SetPageNumber(1);
