@@ -31,13 +31,13 @@ namespace TinySato
             this.printer.Add(string.Format("BD3{0:D2}{1:D3}{2}", thin_bar_width, barcode_top, print_data));
         }
 
-        public void AddCodabar(int thin_bar_width, int bar_top_length, string print_data)
+        public void AddCodabar(int thin_bar_width, int bar_top_length, string print_data, char start_stop_char = 'A')
         {
-            int codabar_ratio13 = 0;
+            const int codabar_ratio13 = 0;
             int sscc_disable = 0; // WIP Need?
-            this.printer.Add(string.Format("B{0:D1}{1:D2}{2:D3}{3}A{4}A",
+            this.printer.Add(string.Format("B{0:D1}{1:D2}{2:D3}{3}{5}{4}{5}",
                 codabar_ratio13, thin_bar_width, bar_top_length, sscc_disable,
-                print_data));
+                print_data, start_stop_char));
         }
     }
 }
