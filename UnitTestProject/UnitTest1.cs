@@ -133,6 +133,9 @@ namespace UnitTestProject
             sato.SetSensorType(SensorType.Reflection);
             sato.SetGapSizeBetweenLabels((int)(paper_gap_mm * mm2dot));
             sato.SetPaperSize((int)(paper_height_mm * mm2dot), (int)(paper_width_mm * mm2dot));
+            sato.SetStartPosition(
+                (int)Math.Round(paper_offset_x_mm * mm2dot),
+                (int)Math.Round(paper_offset_y_mm * mm2dot));
 
             sato.MoveToX(1);
             sato.MoveToY(1);
