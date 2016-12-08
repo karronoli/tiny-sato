@@ -146,8 +146,7 @@ namespace UnitTestProject
             sato.MoveToY(80);
             sato.Barcode.AddCODE128(1, 50, barcode);
 
-            sato.SetPageNumber(1);
-            sato.Send();
+            sato.Send(1);
 
             var after = getJobCount();
             Assert.AreEqual(before + 1, after);
