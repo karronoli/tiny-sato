@@ -181,6 +181,12 @@ namespace TinySato
                 Encoding.ASCII.GetBytes(ESC + operation));
         }
 
+        public void Send(uint number_of_pages)
+        {
+            this.SetPageNumber(number_of_pages);
+            Send();
+        }
+
         public void Send()
         {
             operations.Insert(operation_start_index,
