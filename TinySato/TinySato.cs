@@ -6,6 +6,7 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Text;
+using System.IO;
 
 namespace TinySato
 {
@@ -42,10 +43,12 @@ namespace TinySato
         protected IntPtr printer = new IntPtr();
         protected List<byte[]> operations = new List<byte[]> { };
         public Barcode Barcode { get; }
+        public Graphic Graphic { get; }
+
         protected const string
             OPERATION_A = "\x02\x1b\x41", // STX + ESC + 'A'
             OPERATION_Z = "\x1b\x5a\x03"; // ESC + 'Z' + ETX
-        const char ESC = '\x1b';
+        internal const char ESC = '\x1b';
 
         [DllImport("winspool.Drv", EntryPoint = "OpenPrinterA", SetLastError = true, CharSet = CharSet.Ansi, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
         protected static extern bool OpenPrinter([MarshalAs(UnmanagedType.LPStr)] string szPrinter, out IntPtr hPrinter, IntPtr pd);
@@ -73,6 +76,7 @@ namespace TinySato
                 throw new TinySatoException("failed to use printer.",
                     new Win32Exception(Marshal.GetLastWin32Error()));
             this.Barcode = new Barcode(this);
+            this.Graphic = new Graphic(this);
         }
 
         public void MoveToX(int x)
@@ -147,23 +151,6 @@ namespace TinySato
             Add(string.Format("Q{0:D6}", number_of_pages));
         }
 
-        public void AddBitmap(Bitmap original)
-        {
-            var region = new Rectangle(0, 0, original.Width, original.Height);
-            using (var bmp1bpp = original.Clone(region, PixelFormat.Format1bppIndexed))
-            using (var memory = new System.IO.MemoryStream())
-            {
-                bmp1bpp.Save(memory, ImageFormat.Bmp);
-                var bmp = memory.ToArray();
-                if (!(1 <= bmp.Length && bmp.Length <= 99999))
-                    throw new TinySatoException(
-                        string.Format("Reduce bitmap size. current:{0}, max:99999", bmp.Length));
-                Add("GM" + string.Format("{0:D5}", bmp.Length) + ",");
-                operations[operations.Count - 1] =
-                    operations[operations.Count - 1].Concat(bmp).ToArray();
-            }
-        }
-
         public void SetSensorType(SensorType type)
         {
             Add(string.Format("IG{0:D1}", (int)type));
@@ -172,6 +159,11 @@ namespace TinySato
         public void Add(string operation)
         {
             operations.Add(Encoding.ASCII.GetBytes(ESC + operation));
+        }
+
+        internal void Add(byte[] raw_operation)
+        {
+            operations.Add(raw_operation);
         }
 
         protected void Insert(int index, string operation)
