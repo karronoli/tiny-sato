@@ -74,8 +74,18 @@ namespace TinySato
             }
         }
 
-        public void AddBox(int width, int height, int vertical_width, int horizontal_width)
+        public void AddBox(int horizontal_line_width, int vertical_line_width, int width, int height)
         {
+            if (!(1 <= horizontal_line_width && horizontal_line_width <= 99))
+                throw new TinySatoException("Specify 1-99 dots.");
+            if (!(1 <= vertical_line_width && vertical_line_width <= 99))
+                throw new TinySatoException("Specify 1-99 dots.");
+            if (!(1 <= width && width <= 9999))
+                throw new TinySatoException("Specify 1-9999 dots.");
+            if (!(1 <= height && height <= 9999))
+                throw new TinySatoException("Specify 1-9999 dots.");
+            this.printer.Add(string.Format("FW{0:D2}{1:D2}V{2:D4}H{3:D4}",
+                horizontal_line_width, vertical_line_width, height, width));
         }
     }
 }
