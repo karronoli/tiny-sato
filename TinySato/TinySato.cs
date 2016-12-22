@@ -43,10 +43,12 @@ namespace TinySato
         protected IntPtr printer = new IntPtr();
         protected List<byte[]> operations = new List<byte[]> { };
         public Barcode Barcode { get; }
+        public Graphic Graphic { get; }
+
         protected const string
             OPERATION_A = "\x02\x1b\x41", // STX + ESC + 'A'
             OPERATION_Z = "\x1b\x5a\x03"; // ESC + 'Z' + ETX
-        const char ESC = '\x1b';
+        internal const char ESC = '\x1b';
 
         [DllImport("winspool.Drv", EntryPoint = "OpenPrinterA", SetLastError = true, CharSet = CharSet.Ansi, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
         protected static extern bool OpenPrinter([MarshalAs(UnmanagedType.LPStr)] string szPrinter, out IntPtr hPrinter, IntPtr pd);
@@ -74,6 +76,7 @@ namespace TinySato
                 throw new TinySatoException("failed to use printer.",
                     new Win32Exception(Marshal.GetLastWin32Error()));
             this.Barcode = new Barcode(this);
+            this.Graphic = new Graphic(this);
         }
 
         public void MoveToX(int x)
@@ -148,63 +151,6 @@ namespace TinySato
             Add(string.Format("Q{0:D6}", number_of_pages));
         }
 
-        public void AddBitmap(Bitmap original)
-        {
-            var region = new Rectangle(0, 0, original.Width, original.Height);
-            using (var bmp1bpp = original.Clone(region, PixelFormat.Format1bppIndexed))
-            using (var memory = new System.IO.MemoryStream())
-            {
-                bmp1bpp.Save(memory, ImageFormat.Bmp);
-                var bmp = memory.ToArray();
-                if (!(1 <= bmp.Length && bmp.Length <= 99999))
-                    throw new TinySatoException(
-                        string.Format("Reduce bitmap size. current:{0}, max:99999", bmp.Length));
-                Add("GM" + string.Format("{0:D5}", bmp.Length) + ",");
-                operations[operations.Count - 1] =
-                    operations[operations.Count - 1].Concat(bmp).ToArray();
-            }
-        }
-
-        public void AddGraphics(Bitmap original, bool is_strict = false)
-        {
-            if (is_strict &&
-                (original.Width % 8 != 0 || original.Height % 8 != 0))
-                throw new TinySatoException("Invalid a image size. Specify the width or height of multiples of 8.");
-            var region = new Rectangle(0, 0,
-                original.Width - (original.Width % 8),
-                original.Height - (original.Height % 8));
-            using (var bmp1bpp = original.Clone(region, PixelFormat.Format1bppIndexed))
-            {
-                var bmp1bit = new List<byte>();
-                var bmp1bit_ = new byte[bmp1bpp.Height * bmp1bpp.Width];
-                const byte black = 1, white = 0;
-                for (int y = 0, i = 0; y < bmp1bpp.Height; ++y)
-                {
-                    for (int x = 0; x < bmp1bpp.Width; ++x, ++i)
-                    {
-                        var color = bmp1bpp.GetPixel(x, y);
-                        bmp1bit_[i] = (color.R == 0 && color.G == 0 && color.B == 0) ?
-                            black : white;
-                        bmp1bit.Add((color.R == 0 && color.G == 0 && color.B == 0) ?
-                            black : white);
-                    }
-                }
-                var bmp8bit = bmp1bit_.Select((bit, index) => new { Bit = bit, Index = index })
-                    .GroupBy(data => data.Index / 8, data => data.Bit);
-                Add("GH" + string.Format("{0:D3}{1:D3}{2}",
-                    bmp1bpp.Width / 8, bmp1bpp.Height / 8,
-                    string.Join("", bmp8bit.Select(bits =>
-                      ((bits.ElementAt(7))
-                     + (bits.ElementAt(6) << 1)
-                     + (bits.ElementAt(5) << 2)
-                     + (bits.ElementAt(4) << 3)
-                     + (bits.ElementAt(3) << 4)
-                     + (bits.ElementAt(2) << 5)
-                     + (bits.ElementAt(1) << 6)
-                     + (bits.ElementAt(0) << 7)).ToString("X2")))));
-            }
-        }
-
         public void SetSensorType(SensorType type)
         {
             Add(string.Format("IG{0:D1}", (int)type));
@@ -213,6 +159,11 @@ namespace TinySato
         public void Add(string operation)
         {
             operations.Add(Encoding.ASCII.GetBytes(ESC + operation));
+        }
+
+        internal void Add(byte[] raw_operation)
+        {
+            operations.Add(raw_operation);
         }
 
         protected void Insert(int index, string operation)
