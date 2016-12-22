@@ -181,5 +181,37 @@ namespace UnitTestProject
             var after = getJobCount();
             Assert.AreEqual(before + 1, after);
         }
+
+        [TestMethod]
+        public void GraphicsOpecode()
+        {
+            var before = getJobCount();
+            using (var sato = new Printer(printer_name, true))
+            {
+                sato.SetSensorType(SensorType.Reflection);
+
+                int height = (int)Math.Round(210.0 * mm2dot),
+                    width = (int)Math.Round(109.0 * mm2dot),
+                    sub_height = (int)Math.Round(200.0 * mm2dot);
+                sato.SetPaperSize(height, width);
+
+                using (var font = new Font("Consolas", 30))
+                using (var bitmap = new Bitmap(width, sub_height))
+                using (var g = Graphics.FromImage(bitmap))
+                using (var sf = new StringFormat())
+                {
+                    var box = new Rectangle(0, 0, bitmap.Width, bitmap.Height);
+                    g.FillRectangle(Brushes.White, box);
+                    sf.Alignment = StringAlignment.Center;
+                    sf.LineAlignment = StringAlignment.Center;
+                    g.DrawString("ABCDEFGHIJKLMNOPKQRSTUVWXYZ", font, Brushes.Black, box, sf);
+                    sato.MoveToX(1);
+                    sato.MoveToY(1);
+                    sato.AddGraphics(bitmap);
+                }
+            }
+            var after = getJobCount();
+            Assert.AreEqual(before + 1, after);
+        }
     }
 }
