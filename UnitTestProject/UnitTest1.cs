@@ -195,6 +195,13 @@ namespace UnitTestProject
                     sub_height = (int)Math.Round(200.0 * mm2dot);
                 sato.SetPaperSize(height, width);
 
+                sato.MoveToX((int)Math.Round(75.0 * mm2dot));
+                sato.MoveToY((int)Math.Round(120.0 * mm2dot));
+                sato.Graphic.AddBox(
+                    12, 24,
+                    (int)Math.Round(30.0 * mm2dot),
+                    (int)Math.Round(25.0 * mm2dot));
+
                 using (var font = new Font("Consolas", 30))
                 using (var bitmap = new Bitmap(width, sub_height))
                 using (var g = Graphics.FromImage(bitmap))
