@@ -2,6 +2,7 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using TinySato;
 using System.Drawing;
+using System.Linq;
 
 namespace UnitTestProject
 {
@@ -146,11 +147,22 @@ namespace UnitTestProject
             sato.MoveToY(80);
             sato.Barcode.AddCODE128(1, 50, barcode);
 
-            sato.SetPageNumber(1);
-            sato.Send();
+            sato.Send(1);
 
             var after = getJobCount();
             Assert.AreEqual(before + 1, after);
+        }
+
+        [TestMethod]
+        public void Modulus16()
+        {
+            var base_number = 16;
+            var barcode = "A1234A";
+            int check_digit_index = base_number -
+                barcode.Select(
+                  symbol => Barcode.CodabarSymbols.IndexOf(symbol)).
+                    Sum() % base_number;
+            Assert.AreEqual('6', Barcode.CodabarSymbols[check_digit_index]);
         }
 
         [TestMethod]

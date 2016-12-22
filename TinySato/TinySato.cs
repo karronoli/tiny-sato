@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Text;
 
 namespace TinySato
 {
@@ -37,10 +38,14 @@ namespace TinySato
 
         private bool disposed = false;
         protected bool send_at_dispose_if_not_yet_sent = false;
+        protected int operation_start_index = 0;
         protected IntPtr printer = new IntPtr();
         protected List<byte[]> operations = new List<byte[]> { };
         public Barcode Barcode { get; }
-        const byte STX = 0x02, ESC = 0x1b, ETX = 0x03;
+        protected const string
+            OPERATION_A = "\x02\x1b\x41", // STX + ESC + 'A'
+            OPERATION_Z = "\x1b\x5a\x03"; // ESC + 'Z' + ETX
+        const char ESC = '\x1b';
 
         [DllImport("winspool.Drv", EntryPoint = "OpenPrinterA", SetLastError = true, CharSet = CharSet.Ansi, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
         protected static extern bool OpenPrinter([MarshalAs(UnmanagedType.LPStr)] string szPrinter, out IntPtr hPrinter, IntPtr pd);
@@ -95,14 +100,20 @@ namespace TinySato
         {
             if (!(1 <= density && density <= 5))
                 throw new TinySatoException("Specify 1-5 density");
-            Add(string.Format("#E{0:D1}", density, spec.ToString("F")));
+            Insert(0, OPERATION_A);
+            Insert(1, string.Format("#E{0:D1}{1}", density, spec.ToString("F")));
+            Insert(2, OPERATION_Z);
+            operation_start_index += 3;
         }
 
         public void SetSpeed(int speed)
         {
             if (!(1 <= speed && speed <= 5))
                 throw new TinySatoException("Specify 1-5 speed");
-            Add(string.Format("CS{0:D2}", speed));
+            Insert(0, OPERATION_A);
+            Insert(1, string.Format("CS{0:D2}", speed));
+            Insert(2, OPERATION_Z);
+            operation_start_index += 3;
         }
 
         public void SetStartPosition(int x, int y)
@@ -160,24 +171,27 @@ namespace TinySato
 
         public void Add(string operation)
         {
-            var tmp = new byte[] { ESC }
-                .Concat(System.Text.Encoding.ASCII.GetBytes(operation))
-                .ToArray();
-            operations.Add(tmp);
+            operations.Add(Encoding.ASCII.GetBytes(ESC + operation));
+        }
+
+        protected void Insert(int index, string operation)
+        {
+            operations.Insert(
+                index,
+                Encoding.ASCII.GetBytes(ESC + operation));
+        }
+
+        public void Send(uint number_of_pages)
+        {
+            this.SetPageNumber(number_of_pages);
+            Send();
         }
 
         public void Send()
         {
-            operations.Insert(0, new byte[]
-            {
-                // データ送信の開始を設定します
-                STX, ESC, Convert.ToByte('A')
-            });
-            operations.Add(new byte[]
-            {
-                // データ送信の終了を設定します
-                ESC, Convert.ToByte('Z'), ETX
-            });
+            operations.Insert(operation_start_index,
+                Encoding.ASCII.GetBytes(OPERATION_A));
+            operations.Add(Encoding.ASCII.GetBytes(OPERATION_Z));
 
             var flatten = operations.SelectMany(x => x).ToArray();
             var raw = Marshal.AllocCoTaskMem(flatten.Length);
@@ -199,6 +213,7 @@ namespace TinySato
                     throw new Win32Exception(Marshal.GetLastWin32Error());
                 if (!EndDocPrinter(printer))
                     throw new Win32Exception(Marshal.GetLastWin32Error());
+                operation_start_index = 0;
                 this.operations.Clear();
             }
             catch (Win32Exception inner)
