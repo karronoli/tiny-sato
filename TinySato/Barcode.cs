@@ -55,12 +55,10 @@ namespace TinySato
                 throw new TinySatoException("Check start/stop character.");
 
             const int barcode_type = 0; // 0: Codabar
-            const int sscc_parameter = 0; // It does not affect anything.
             string print_data_with_control =
                 string.Format("{0}{1}{0}", start_stop_char, print_data);
-            this.printer.Add(string.Format("B{0:D1}{1:D2}{2:D3}{3}{4}",
-                barcode_type, thin_bar_width, bar_top_length, sscc_parameter,
-                print_data_with_control));
+            this.printer.Add(string.Format("B{0:D1}{1:D2}{2:D3}{3}",
+                barcode_type, thin_bar_width, bar_top_length, print_data_with_control));
         }
     }
 }
