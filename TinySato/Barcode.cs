@@ -1,4 +1,4 @@
-﻿
+
 namespace TinySato
 {
     using System.Linq;
