@@ -114,7 +114,7 @@ namespace UnitTestProject
 
                 sato.MoveToX(1);
                 sato.MoveToY(1);
-                sato.AddBitmap(bitmap);
+                sato.Graphic.AddBitmap(bitmap);
             }
             sato.Send();
 
@@ -207,7 +207,7 @@ namespace UnitTestProject
                     g.DrawString("ABCDEFGHIJKLMNOPKQRSTUVWXYZ", font, Brushes.Black, box, sf);
                     sato.MoveToX(1);
                     sato.MoveToY(1);
-                    sato.AddGraphics(bitmap);
+                    sato.Graphic.AddGraphic(bitmap);
                 }
             }
             var after = getJobCount();
