@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using TinySato;
 using System.Drawing;
@@ -58,7 +58,7 @@ namespace UnitTestProject
             var b = new Printer(printer_name);
             // random operations
             b.Send(); // send <A><Z>, job +1
-            a.SetCalendar(DateTime.Now); // To add job, need a operation at least. 
+            a.SetCalendar(DateTime.Now); // To add job, need a operation at least.
             a.Dispose();
             b.Close();
             Assert.AreEqual(before + 2, getJobCount());
