@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -31,5 +31,5 @@ using System.Runtime.InteropServices;
 //
 // すべての値を指定するか、下のように '*' を使ってビルドおよびリビジョン番号を 
 // 既定値にすることができます:
-[assembly: AssemblyVersion("1.0.12.4803")]
-[assembly: AssemblyFileVersion("1.0.12")]
+[assembly: AssemblyVersion("1.0.13.24009")]
+[assembly: AssemblyFileVersion("1.0.13")]

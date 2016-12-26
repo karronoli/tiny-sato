@@ -58,7 +58,7 @@ namespace UnitTestProject
             var b = new Printer(printer_name);
             // random operations
             b.Send(); // send <A><Z>, job +1
-            a.SetCalendar(DateTime.Now); // To add job, need a operation at least. 
+            a.SetCalendar(DateTime.Now); // To add job, need a operation at least.
             a.Dispose();
             b.Close();
             Assert.AreEqual(before + 2, getJobCount());
@@ -114,7 +114,7 @@ namespace UnitTestProject
 
                 sato.MoveToX(1);
                 sato.MoveToY(1);
-                sato.AddBitmap(bitmap);
+                sato.Graphic.AddBitmap(bitmap);
             }
             sato.Send();
 
@@ -177,6 +177,45 @@ namespace UnitTestProject
                 sato.MoveToX(1);
                 sato.MoveToY(1);
                 sato.Barcode.AddCODE128(1, 30, "HELLO");
+            }
+            var after = getJobCount();
+            Assert.AreEqual(before + 1, after);
+        }
+
+        [TestMethod]
+        public void GraphicsOpecode()
+        {
+            var before = getJobCount();
+            using (var sato = new Printer(printer_name, true))
+            {
+                sato.SetSensorType(SensorType.Reflection);
+
+                int height = (int)Math.Round(210.0 * mm2dot),
+                    width = (int)Math.Round(109.0 * mm2dot),
+                    sub_height = (int)Math.Round(200.0 * mm2dot);
+                sato.SetPaperSize(height, width);
+
+                sato.MoveToX((int)Math.Round(75.0 * mm2dot));
+                sato.MoveToY((int)Math.Round(120.0 * mm2dot));
+                sato.Graphic.AddBox(
+                    12, 24,
+                    (int)Math.Round(30.0 * mm2dot),
+                    (int)Math.Round(25.0 * mm2dot));
+
+                using (var font = new Font("Consolas", 30))
+                using (var bitmap = new Bitmap(width, sub_height))
+                using (var g = Graphics.FromImage(bitmap))
+                using (var sf = new StringFormat())
+                {
+                    var box = new Rectangle(0, 0, bitmap.Width, bitmap.Height);
+                    g.FillRectangle(Brushes.White, box);
+                    sf.Alignment = StringAlignment.Center;
+                    sf.LineAlignment = StringAlignment.Center;
+                    g.DrawString("ABCDEFGHIJKLMNOPKQRSTUVWXYZ", font, Brushes.Black, box, sf);
+                    sato.MoveToX(1);
+                    sato.MoveToY(1);
+                    sato.Graphic.AddGraphic(bitmap);
+                }
             }
             var after = getJobCount();
             Assert.AreEqual(before + 1, after);

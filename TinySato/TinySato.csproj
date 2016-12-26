@@ -44,6 +44,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Barcode.cs" />
+    <Compile Include="Graphic.cs" />
     <Compile Include="TinySato.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="TinySatoException.cs" />
