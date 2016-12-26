@@ -44,21 +44,18 @@ namespace TinySato
                 original.Height - (original.Height % 8));
             using (var bmp1bpp = original.Clone(region, PixelFormat.Format1bppIndexed))
             {
-                var bmp1bit = new List<byte>();
-                var bmp1bit_ = new byte[bmp1bpp.Height * bmp1bpp.Width];
+                var bmp1bit = new byte[bmp1bpp.Height * bmp1bpp.Width];
                 const byte black = 1, white = 0;
                 for (int y = 0, i = 0; y < bmp1bpp.Height; ++y)
                 {
                     for (int x = 0; x < bmp1bpp.Width; ++x, ++i)
                     {
                         var color = bmp1bpp.GetPixel(x, y);
-                        bmp1bit_[i] = (color.R == 0 && color.G == 0 && color.B == 0) ?
+                        bmp1bit[i] = (color.R == 0 && color.G == 0 && color.B == 0) ?
                             black : white;
-                        bmp1bit.Add((color.R == 0 && color.G == 0 && color.B == 0) ?
-                            black : white);
                     }
                 }
-                var bmp8bit = bmp1bit_.Select((bit, index) => new { Bit = bit, Index = index })
+                var bmp8bit = bmp1bit.Select((bit, index) => new { Bit = bit, Index = index })
                     .GroupBy(data => data.Index / 8, data => data.Bit);
                 this.printer.Add("GH" + string.Format("{0:D3}{1:D3}{2}",
                     bmp1bpp.Width / 8, bmp1bpp.Height / 8,
