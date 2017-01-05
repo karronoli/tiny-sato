@@ -190,20 +190,31 @@ namespace UnitTestProject
             {
                 sato.SetSensorType(SensorType.Reflection);
 
-                int height = (int)Math.Round(210.0 * mm2dot),
-                    width = (int)Math.Round(109.0 * mm2dot),
-                    sub_height = (int)Math.Round(200.0 * mm2dot);
+                int height = (int)Math.Round(50.0 * mm2dot),
+                    width = (int)Math.Round(88.0 * mm2dot),
+                    sub_width = (int)Math.Round(85.0 * mm2dot),
+                    sub_height = (int)Math.Round(50.0 * mm2dot);
+                bool draw_rectangle_by_sbpl = true;
+                sato.SetGapSizeBetweenLabels((int)Math.Round(2.0 * mm2dot));
                 sato.SetPaperSize(height, width);
 
-                sato.MoveToX((int)Math.Round(75.0 * mm2dot));
-                sato.MoveToY((int)Math.Round(120.0 * mm2dot));
-                sato.Graphic.AddBox(
-                    12, 24,
-                    (int)Math.Round(30.0 * mm2dot),
-                    (int)Math.Round(25.0 * mm2dot));
+                sato.MoveToX((int)Math.Round(5.0 * mm2dot));
+                sato.MoveToY((int)Math.Round(5.0 * mm2dot));
+                sato.Barcode.AddCODE128(1, (int)Math.Round(5.0 * mm2dot), "TEST");
+
+                if (draw_rectangle_by_sbpl)
+                {
+                    sato.MoveToX((int)Math.Round(1.3 * mm2dot));
+                    sato.MoveToY(1);
+                    sato.Graphic.AddBox(
+                        (int)Math.Round(0.5 * mm2dot),
+                        (int)Math.Round(0.5 * mm2dot),
+                        sub_width,
+                        sub_height);
+                }
 
                 using (var font = new Font("Consolas", 30))
-                using (var bitmap = new Bitmap(width, sub_height))
+                using (var bitmap = new Bitmap(sub_width, sub_height))
                 using (var g = Graphics.FromImage(bitmap))
                 using (var sf = new StringFormat())
                 {
@@ -211,8 +222,15 @@ namespace UnitTestProject
                     g.FillRectangle(Brushes.White, box);
                     sf.Alignment = StringAlignment.Center;
                     sf.LineAlignment = StringAlignment.Center;
-                    g.DrawString("ABCDEFGHIJKLMNOPKQRSTUVWXYZ", font, Brushes.Black, box, sf);
-                    sato.MoveToX(1);
+                    g.DrawString("ABCDEFGHIJKLMNOPQRSTUVWXYZ", font, Brushes.Black, box, sf);
+
+                    if (!draw_rectangle_by_sbpl)
+                    {
+                        g.DrawRectangle(new Pen(Color.Black, 8),
+                            new Rectangle(0, 0, bitmap.Width, bitmap.Height));
+                    }
+
+                    sato.MoveToX((int)Math.Round(1.3 * mm2dot));
                     sato.MoveToY(1);
                     sato.Graphic.AddGraphic(bitmap);
                 }
