@@ -153,7 +153,10 @@ namespace TinySato
 
         public void SetSensorType(SensorType type)
         {
-            Add(string.Format("IG{0:D1}", (int)type));
+            Insert(0, OPERATION_A);
+            Insert(1, string.Format("IG{0:D1}", (int)type));
+            Insert(2, OPERATION_Z);
+            operation_start_index += 3;
         }
 
         public void Add(string operation)
