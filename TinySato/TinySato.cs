@@ -1,26 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.ComponentModel;
-using System.Drawing;
-using System.Drawing.Imaging;
-using System.Text;
-using System.IO;
-
+﻿
 namespace TinySato
 {
-    // https://msdn.microsoft.com/library/cc398781.aspx
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
-    public class DOCINFOA
-    {
-        [MarshalAs(UnmanagedType.LPStr)]
-        public string pDocName;
-        [MarshalAs(UnmanagedType.LPStr)]
-        public string pOutputFile;
-        [MarshalAs(UnmanagedType.LPStr)]
-        public string pDataType;
-    }
+    using System;
+    using System.Collections.Generic;
+    using System.ComponentModel;
+    using System.Linq;
+    using System.Runtime.InteropServices;
+    using System.Text;
 
     public enum SensorType
     {
@@ -36,7 +22,6 @@ namespace TinySato
 
     public class Printer : IDisposable
     {
-
         private bool disposed = false;
         protected bool send_at_dispose_if_not_yet_sent = false;
         protected int operation_start_index = 0;
@@ -50,21 +35,6 @@ namespace TinySato
             OPERATION_Z = "\x1b\x5a\x03"; // ESC + 'Z' + ETX
         internal const char ESC = '\x1b';
 
-        [DllImport("winspool.Drv", EntryPoint = "OpenPrinterA", SetLastError = true, CharSet = CharSet.Ansi, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
-        protected static extern bool OpenPrinter([MarshalAs(UnmanagedType.LPStr)] string szPrinter, out IntPtr hPrinter, IntPtr pd);
-        [DllImport("winspool.Drv", EntryPoint = "ClosePrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
-        protected static extern bool ClosePrinter(IntPtr hPrinter);
-        [DllImport("winspool.Drv", EntryPoint = "StartDocPrinterA", SetLastError = true, CharSet = CharSet.Ansi, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
-        protected static extern bool StartDocPrinter(IntPtr hPrinter, Int32 level, [In, MarshalAs(UnmanagedType.LPStruct)] DOCINFOA di);
-        [DllImport("winspool.Drv", EntryPoint = "EndDocPrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
-        protected static extern bool EndDocPrinter(IntPtr hPrinter);
-        [DllImport("winspool.Drv", EntryPoint = "StartPagePrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
-        protected static extern bool StartPagePrinter(IntPtr hPrinter);
-        [DllImport("winspool.Drv", EntryPoint = "EndPagePrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
-        protected static extern bool EndPagePrinter(IntPtr hPrinter);
-        [DllImport("winspool.Drv", EntryPoint = "WritePrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
-        protected static extern bool WritePrinter(IntPtr hPrinter, IntPtr pBytes, Int32 dwCount, out Int32 dwWritten);
-
         public Printer(string PrinterName, bool send_at_dispose_if_not_yet_sent) : this(PrinterName)
         {
             this.send_at_dispose_if_not_yet_sent = send_at_dispose_if_not_yet_sent;
@@ -72,7 +42,7 @@ namespace TinySato
 
         public Printer(string name)
         {
-            if (!OpenPrinter(name.Normalize(), out printer, IntPtr.Zero))
+            if (!Win32.OpenPrinter(name.Normalize(), out printer, IntPtr.Zero))
                 throw new TinySatoException("failed to use printer.",
                     new Win32Exception(Marshal.GetLastWin32Error()));
             this.Barcode = new Barcode(this);
@@ -97,7 +67,10 @@ namespace TinySato
         {
             if (!(0 <= y && y <= 64))
                 throw new TinySatoException("Specify 0-64 dots.");
-            Add(string.Format("TG{0:D2}", y));
+            Insert(0, OPERATION_A);
+            Insert(1, string.Format("TG{0:D2}", y));
+            Insert(2, OPERATION_Z);
+            operation_start_index += 3;
         }
 
         public void SetDensity(int density, DensitySpec spec)
@@ -135,7 +108,10 @@ namespace TinySato
                 throw new TinySatoException("Specify 1-9999 dots for height.");
             if (!(1 <= width && width <= 9999))
                 throw new TinySatoException("Specify 1-9999 dots for width.");
-            Add(string.Format("A1{0:D4}{1:D4}", height, width));
+            Insert(0, OPERATION_A);
+            Insert(1, string.Format("A1{0:D4}{1:D4}", height, width));
+            Insert(2, OPERATION_Z);
+            operation_start_index += 3;
         }
 
         public void SetCalendar(DateTime dt)
@@ -198,15 +174,15 @@ namespace TinySato
             int written = 0;
             try
             {
-                if (!StartDocPrinter(printer, level, di))
+                if (!Win32.StartDocPrinter(printer, level, di))
                     throw new Win32Exception(Marshal.GetLastWin32Error());
-                if (!StartPagePrinter(printer))
+                if (!Win32.StartPagePrinter(printer))
                     throw new Win32Exception(Marshal.GetLastWin32Error());
-                if (!WritePrinter(printer, raw, flatten.Length, out written))
+                if (!Win32.WritePrinter(printer, raw, flatten.Length, out written))
                     throw new Win32Exception(Marshal.GetLastWin32Error());
-                if (!EndPagePrinter(printer))
+                if (!Win32.EndPagePrinter(printer))
                     throw new Win32Exception(Marshal.GetLastWin32Error());
-                if (!EndDocPrinter(printer))
+                if (!Win32.EndDocPrinter(printer))
                     throw new Win32Exception(Marshal.GetLastWin32Error());
                 operation_start_index = 0;
                 this.operations.Clear();
@@ -220,7 +196,7 @@ namespace TinySato
 
         public void Close()
         {
-            if (printer == IntPtr.Zero || ClosePrinter(printer))
+            if (printer == IntPtr.Zero || Win32.ClosePrinter(printer))
             {
                 printer = IntPtr.Zero;
             }
