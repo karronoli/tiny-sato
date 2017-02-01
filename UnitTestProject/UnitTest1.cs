@@ -60,6 +60,8 @@ namespace UnitTestProject
             b.Send(); // send <A><Z>, job +1
             a.SetCalendar(DateTime.Now); // To add job, need a operation at least.
             a.Dispose();
+            a.Dispose();
+            b.Close();
             b.Close();
             Assert.AreEqual(before + 2, getJobCount());
         }
