@@ -51,7 +51,7 @@ namespace TinySato
         /// <param name="start_char">Start Character</param>
         /// <param name="stop_char">Stop Character</param>
         public void AddCodabar13(int thin_bar_width, int bar_top_length, string print_data,
-            char start_char = 'A', char stop_char = 'A')
+            char start_char, char stop_char)
         {
             if (!(1 <= thin_bar_width && thin_bar_width <= 12))
                 throw new TinySatoException("Specify 1-12 dot for Narrow Bar Width.");
