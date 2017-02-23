@@ -27,6 +27,9 @@ namespace TinySato
         protected int operation_start_index = 0;
         protected IntPtr printer = IntPtr.Zero;
         protected List<byte[]> operations = new List<byte[]> { };
+        protected int soft_offset_x = 0;
+        protected int soft_offset_y = 0;
+
         public Barcode Barcode { get; }
         public Graphic Graphic { get; }
 
@@ -53,14 +56,14 @@ namespace TinySato
         {
             if (!(1 <= x && x <= 9999))
                 throw new TinySatoException("Specify 1-9999 dots.");
-            Add(string.Format("H{0:D4}", x));
+            Add(string.Format("H{0:D4}", x + soft_offset_x));
         }
 
         public void MoveToY(int y)
         {
             if (!(1 <= y && y <= 9999))
                 throw new TinySatoException("Specify 1-9999 dots.");
-            Add(string.Format("V{0:D4}", y));
+            Add(string.Format("V{0:D4}", y + soft_offset_y));
         }
 
         public void SetGapSizeBetweenLabels(int y)
@@ -100,6 +103,16 @@ namespace TinySato
             if (!(Math.Abs(y) <= 999))
                 throw new TinySatoException("Specify -999 <= y <= 999 dots.");
             Add(string.Format("A3V{0:D4}H{1:D3}", y, x));
+        }
+
+        public void SetStartPositionEx(int x, int y)
+        {
+            if (!(Math.Abs(x) <= 9999))
+                throw new TinySatoException("Specify -9999 <= x <= 9999 dots.");
+            if (!(Math.Abs(y) <= 9999))
+                throw new TinySatoException("Specify -9999 <= y <= 9999 dots.");
+            soft_offset_x = x;
+            soft_offset_y = y;
         }
 
         public void SetPaperSize(int height, int width)
