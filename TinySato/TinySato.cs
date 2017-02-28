@@ -55,16 +55,18 @@ namespace TinySato
 
         public void MoveToX(int x)
         {
-            if (!(1 <= x && x <= 9999))
+            var _x = x + soft_offset_x;
+            if (!(1 <= _x && _x <= 9999))
                 throw new TinySatoException("Specify 1-9999 dots.");
-            Add(string.Format("H{0:D4}", x + soft_offset_x));
+            Add(string.Format("H{0:D4}", _x));
         }
 
         public void MoveToY(int y)
         {
-            if (!(1 <= y && y <= 9999))
+            var _y = y + soft_offset_y;
+            if (!(1 <= _y && _y <= 9999))
                 throw new TinySatoException("Specify 1-9999 dots.");
-            Add(string.Format("V{0:D4}", y + soft_offset_y));
+            Add(string.Format("V{0:D4}", _y));
         }
 
         public void SetGapSizeBetweenLabels(int y)
