@@ -101,11 +101,11 @@ namespace TinySato
 
         public void SetStartPosition(int x, int y)
         {
-            if (!(Math.Abs(x) <= 9999))
-                throw new TinySatoException("Specify -9999 <= x <= 9999 dots.");
+            if (!(Math.Abs(x) <= 999))
+                throw new TinySatoException("Specify -999 <= x <= 999 dots.");
             if (!(Math.Abs(y) <= 999))
                 throw new TinySatoException("Specify -999 <= y <= 999 dots.");
-            Add(string.Format("A3V{0:D4}H{1:D3}", y, x));
+            Add(string.Format("A3V{0:+000;-000}H{1:+000;-000}", y, x));
         }
 
         public void SetStartPositionEx(int x, int y)
