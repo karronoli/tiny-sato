@@ -128,27 +128,34 @@ namespace UnitTestProject
         public void EyeMarkPrinting()
         {
             var before = getJobCount();
-            var barcode = "1234567890ABCDEF";
-            var paper_width_mm = 50.0;
-            var paper_height_mm = 20.0;
-            var paper_gap_mm = 2.0;
-            var paper_offset_x_mm = 1.0;
-            var paper_offset_y_mm = 0.8;
+            var barcode = "ABCDEF1234567890";
+            var paper_width = 50.0 * mm2dot;
+            var paper_height = 20.0 * mm2dot;
 
             sato.SetSensorType(SensorType.Reflection);
             sato.SetGapSizeBetweenLabels(
-                (int)Math.Round(paper_gap_mm * mm2dot));
+                (int)Math.Round(2.0 * mm2dot));
             sato.SetPaperSize(
-                (int)Math.Round(paper_height_mm * mm2dot),
-                (int)Math.Round(paper_width_mm * mm2dot));
-            sato.SetStartPosition(
-                (int)Math.Round(paper_offset_x_mm * mm2dot),
-                (int)Math.Round(paper_offset_y_mm * mm2dot));
+                (int)Math.Round(paper_height),
+                (int)Math.Round(paper_width));
 
-            sato.MoveToX(80);
-            sato.MoveToY(80);
-            sato.Barcode.AddCODE128(1, 50, barcode);
+            // reset start position
+            sato.SetStartPosition(0, 0);
+            sato.MoveToX(48);
+            sato.MoveToY(24);
+            sato.Barcode.AddCODE128(1, 48, barcode);
 
+            // calibrate start position
+            sato.SetStartPosition(24, 88);
+            sato.Barcode.AddCODE128(1, 48, barcode, (Size s) =>
+            {
+                var x = (paper_width - s.Width) / 2.0;
+                sato.MoveToX((int)Math.Round(x));
+                sato.MoveToY(1);
+            });
+
+            // reset start position
+            sato.SetStartPosition(0, 0);
             sato.Send(1);
 
             var after = getJobCount();
