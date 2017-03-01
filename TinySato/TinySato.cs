@@ -33,10 +33,11 @@ namespace TinySato
         public Barcode Barcode { get; }
         public Graphic Graphic { get; }
 
-        protected const string
-            OPERATION_A = "\x02\x1b\x41", // STX + ESC + 'A'
-            OPERATION_Z = "\x1b\x5a\x03"; // ESC + 'Z' + ETX
-        internal const char ESC = '\x1b';
+        internal const char
+            STX = '\x02', ETX = '\x03', ESC = '\x1b';
+        protected string
+            OPERATION_A = ESC + "A",
+            OPERATION_Z = ESC + "Z";
 
         public Printer(string PrinterName, bool send_at_dispose_if_not_yet_sent) : this(PrinterName)
         {
@@ -54,16 +55,18 @@ namespace TinySato
 
         public void MoveToX(int x)
         {
-            if (!(1 <= x && x <= 9999))
+            var _x = x + soft_offset_x;
+            if (!(1 <= _x && _x <= 9999))
                 throw new TinySatoException("Specify 1-9999 dots.");
-            Add(string.Format("H{0:D4}", x + soft_offset_x));
+            Add(string.Format("H{0:D4}", _x));
         }
 
         public void MoveToY(int y)
         {
-            if (!(1 <= y && y <= 9999))
+            var _y = y + soft_offset_y;
+            if (!(1 <= _y && _y <= 9999))
                 throw new TinySatoException("Specify 1-9999 dots.");
-            Add(string.Format("V{0:D4}", y + soft_offset_y));
+            Add(string.Format("V{0:D4}", _y));
         }
 
         public void SetGapSizeBetweenLabels(int y)
@@ -71,7 +74,7 @@ namespace TinySato
             if (!(0 <= y && y <= 64))
                 throw new TinySatoException("Specify 0-64 dots.");
             Insert(0, OPERATION_A);
-            Insert(1, string.Format("TG{0:D2}", y));
+            Insert(1, ESC + string.Format("TG{0:D2}", y));
             Insert(2, OPERATION_Z);
             operation_start_index += 3;
         }
@@ -81,7 +84,7 @@ namespace TinySato
             if (!(1 <= density && density <= 5))
                 throw new TinySatoException("Specify 1-5 density");
             Insert(0, OPERATION_A);
-            Insert(1, string.Format("#E{0:D1}{1}", density, spec.ToString("F")));
+            Insert(1, ESC + string.Format("#E{0:D1}{1}", density, spec.ToString("F")));
             Insert(2, OPERATION_Z);
             operation_start_index += 3;
         }
@@ -91,18 +94,18 @@ namespace TinySato
             if (!(1 <= speed && speed <= 5))
                 throw new TinySatoException("Specify 1-5 speed");
             Insert(0, OPERATION_A);
-            Insert(1, string.Format("CS{0:D2}", speed));
+            Insert(1, ESC + string.Format("CS{0:D2}", speed));
             Insert(2, OPERATION_Z);
             operation_start_index += 3;
         }
 
         public void SetStartPosition(int x, int y)
         {
-            if (!(Math.Abs(x) <= 9999))
-                throw new TinySatoException("Specify -9999 <= x <= 9999 dots.");
+            if (!(Math.Abs(x) <= 999))
+                throw new TinySatoException("Specify -999 <= x <= 999 dots.");
             if (!(Math.Abs(y) <= 999))
                 throw new TinySatoException("Specify -999 <= y <= 999 dots.");
-            Add(string.Format("A3V{0:D4}H{1:D3}", y, x));
+            Add(string.Format("A3V{0:+000;-000}H{1:+000;-000}", y, x));
         }
 
         public void SetStartPositionEx(int x, int y)
@@ -122,7 +125,7 @@ namespace TinySato
             if (!(1 <= width && width <= 9999))
                 throw new TinySatoException("Specify 1-9999 dots for width.");
             Insert(0, OPERATION_A);
-            Insert(1, string.Format("A1{0:D4}{1:D4}", height, width));
+            Insert(1, ESC + string.Format("A1{0:D4}{1:D4}", height, width));
             Insert(2, OPERATION_Z);
             operation_start_index += 3;
         }
@@ -143,7 +146,7 @@ namespace TinySato
         public void SetSensorType(SensorType type)
         {
             Insert(0, OPERATION_A);
-            Insert(1, string.Format("IG{0:D1}", (int)type));
+            Insert(1, ESC + string.Format("IG{0:D1}", (int)type));
             Insert(2, OPERATION_Z);
             operation_start_index += 3;
         }
@@ -162,7 +165,7 @@ namespace TinySato
         {
             operations.Insert(
                 index,
-                Encoding.ASCII.GetBytes(ESC + operation));
+                Encoding.ASCII.GetBytes(operation));
         }
 
         public void Send(uint number_of_pages)
@@ -175,7 +178,8 @@ namespace TinySato
         {
             operations.Insert(operation_start_index,
                 Encoding.ASCII.GetBytes(OPERATION_A));
-            operations.Add(Encoding.ASCII.GetBytes(OPERATION_Z));
+            operations[0] = (new byte[] { Convert.ToByte(STX) }).Concat(operations[0]).ToArray();
+            operations.Add(Encoding.ASCII.GetBytes(OPERATION_Z + ETX));
 
             var flatten = operations.SelectMany(x => x).ToArray();
             var raw = Marshal.AllocCoTaskMem(flatten.Length);
