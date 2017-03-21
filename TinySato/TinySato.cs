@@ -168,6 +168,19 @@ namespace TinySato
                 Encoding.ASCII.GetBytes(operation));
         }
 
+        /// <summary>
+        /// Add another stream
+        ///
+        /// Add another empty stream for printing multi pages at once.
+        /// </summary>
+        public void AddStream()
+        {
+            operations.Insert(operation_start_index,
+                Encoding.ASCII.GetBytes(OPERATION_A));
+            operations.Add(Encoding.ASCII.GetBytes(OPERATION_Z));
+            operation_start_index = operations.Count;
+        }
+
         public void Send(uint number_of_pages)
         {
             this.SetPageNumber(number_of_pages);

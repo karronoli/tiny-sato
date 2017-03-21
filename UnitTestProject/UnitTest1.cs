@@ -206,6 +206,7 @@ namespace UnitTestProject
                 bool draw_rectangle_by_sbpl = true;
                 sato.SetGapSizeBetweenLabels((int)Math.Round(2.0 * mm2dot));
                 sato.SetPaperSize(height, width);
+                sato.SetStartPosition((int)Math.Round(1.0 * mm2dot), 0);
 
                 sato.MoveToX((int)Math.Round(5.0 * mm2dot));
                 sato.MoveToY((int)Math.Round(5.0 * mm2dot));
@@ -243,6 +244,13 @@ namespace UnitTestProject
                     sato.MoveToY(1);
                     sato.Graphic.AddGraphic(bitmap);
                 }
+                sato.SetPageNumber(1);
+                sato.AddStream();
+
+                sato.MoveToX((int)Math.Round(10.0 * mm2dot));
+                sato.MoveToY((int)Math.Round(10.0 * mm2dot));
+                sato.Barcode.AddCODE128(2, (int)Math.Round(10.0 * mm2dot), "TEST");
+                sato.SetPageNumber(2);
             }
             var after = getJobCount();
             Assert.AreEqual(before + 1, after);
