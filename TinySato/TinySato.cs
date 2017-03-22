@@ -187,7 +187,7 @@ namespace TinySato
             Send();
         }
 
-        public void Send()
+        public int Send()
         {
             operations.Insert(operation_start_index,
                 Encoding.ASCII.GetBytes(OPERATION_A));
@@ -222,6 +222,7 @@ namespace TinySato
                 throw new TinySatoException("failed to send operations.", inner);
             }
             finally { Marshal.FreeCoTaskMem(raw); }
+            return flatten.Length;
         }
 
         public void Close()
