@@ -35,7 +35,7 @@ namespace TinySato
 
         internal const char
             STX = '\x02', ETX = '\x03', ESC = '\x1b';
-        protected string
+        protected readonly string
             OPERATION_A = ESC + "A",
             OPERATION_Z = ESC + "Z";
 
