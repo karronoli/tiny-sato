@@ -49,6 +49,10 @@ namespace TinySato
             if (!Win32.OpenPrinter(name.Normalize(), out printer, IntPtr.Zero))
                 throw new TinySatoException("failed to use printer.",
                     new Win32Exception(Marshal.GetLastWin32Error()));
+            const int level = 1; // for not win98
+            var di = new DOCINFOA() { pDataType = "raw", pDocName = "RAW DOCUMENT" };
+            if (!Win32.StartDocPrinter(printer, level, di))
+                throw new Win32Exception(Marshal.GetLastWin32Error());
             this.Barcode = new Barcode(this);
             this.Graphic = new Graphic(this);
         }
@@ -173,18 +177,40 @@ namespace TinySato
         ///
         /// Add another empty stream for printing multi pages at once.
         /// </summary>
-        public void AddStream()
+        public int AddStream()
         {
             operations.Insert(operation_start_index,
                 Encoding.ASCII.GetBytes(OPERATION_A));
             operations.Add(Encoding.ASCII.GetBytes(OPERATION_Z));
             operation_start_index = operations.Count;
+
+            var flatten = operations.SelectMany(x => x).ToArray();
+            var raw = Marshal.AllocCoTaskMem(flatten.Length);
+            Marshal.Copy(flatten, 0, raw, flatten.Length);
+            int written = 0;
+            try
+            {
+                if (!Win32.StartPagePrinter(printer))
+                    throw new Win32Exception(Marshal.GetLastWin32Error());
+                if (!Win32.WritePrinter(printer, raw, flatten.Length, out written))
+                    throw new Win32Exception(Marshal.GetLastWin32Error());
+                if (!Win32.EndPagePrinter(printer))
+                    throw new Win32Exception(Marshal.GetLastWin32Error());
+                operation_start_index = 0;
+                this.operations.Clear();
+            }
+            catch (Win32Exception inner)
+            {
+                throw new TinySatoException("failed to send operations.", inner);
+            }
+            finally { Marshal.FreeCoTaskMem(raw); }
+            return flatten.Length;
         }
 
-        public void Send(uint number_of_pages)
+        public int Send(uint number_of_pages)
         {
             this.SetPageNumber(number_of_pages);
-            Send();
+            return Send();
         }
 
         public int Send()
@@ -197,15 +223,9 @@ namespace TinySato
             var flatten = operations.SelectMany(x => x).ToArray();
             var raw = Marshal.AllocCoTaskMem(flatten.Length);
             Marshal.Copy(flatten, 0, raw, flatten.Length);
-            const int level = 1; // for not win98
-            var di = new DOCINFOA();
-            di.pDocName = "RAW DOCUMENT";
-            di.pDataType = "raw";
             int written = 0;
             try
             {
-                if (!Win32.StartDocPrinter(printer, level, di))
-                    throw new Win32Exception(Marshal.GetLastWin32Error());
                 if (!Win32.StartPagePrinter(printer))
                     throw new Win32Exception(Marshal.GetLastWin32Error());
                 if (!Win32.WritePrinter(printer, raw, flatten.Length, out written))

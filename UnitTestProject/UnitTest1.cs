@@ -10,26 +10,11 @@ namespace UnitTestProject
     public class UnitTest1
     {
         protected string printer_name = "T408v";
-        protected Printer sato;
 
         const double inch2mm = 25.4;
         const double dpi = 203;
         const double dot2mm = inch2mm / dpi; // 25.4(mm) / 203(dot) -> 0.125(mm/dot)
         const double mm2dot = 1 / dot2mm; // 8(dot/mm)
-
-        [TestInitialize]
-        public void SetUp()
-        {
-            sato = new Printer(printer_name);
-            sato.SetDensity(3, DensitySpec.A);
-            sato.SetSpeed(4);
-        }
-
-        [TestCleanup]
-        public void TearDown()
-        {
-            sato.Dispose();
-        }
 
         protected int getJobCount()
         {
@@ -72,6 +57,7 @@ namespace UnitTestProject
             var before = getJobCount();
             var barcode = "1234567890128";
 
+            var sato = new Printer(printer_name);
             sato.SetSensorType(SensorType.Transparent);
             sato.SetPaperSize((int)(80 * mm2dot), (int)(104 * mm2dot));
 
@@ -81,6 +67,7 @@ namespace UnitTestProject
 
             sato.SetPageNumber(1);
             sato.Send();
+            sato.Dispose();
 
             var after = getJobCount();
             Assert.AreEqual(before + 1, after);
@@ -93,6 +80,7 @@ namespace UnitTestProject
             var barcode = "A-12-345";
             int width = (int)(104 * mm2dot), height = (int)(80 * mm2dot);
 
+            var sato = new Printer(printer_name);
             sato.SetSensorType(SensorType.Transparent);
             sato.SetPaperSize(height, width);
             sato.SetPageNumber(1);
@@ -119,6 +107,7 @@ namespace UnitTestProject
                 sato.Graphic.AddBitmap(bitmap);
             }
             sato.Send();
+            sato.Dispose();
 
             var after = getJobCount();
             Assert.AreEqual(before + 1, after);
@@ -132,6 +121,7 @@ namespace UnitTestProject
             var paper_width = 50.0 * mm2dot;
             var paper_height = 20.0 * mm2dot;
 
+            var sato = new Printer(printer_name);
             sato.SetSensorType(SensorType.Reflection);
             sato.SetGapSizeBetweenLabels(
                 (int)Math.Round(2.0 * mm2dot));
@@ -157,6 +147,7 @@ namespace UnitTestProject
             // reset start position
             sato.SetStartPosition(0, 0);
             sato.Send(1);
+            sato.Dispose();
 
             var after = getJobCount();
             Assert.AreEqual(before + 1, after);
