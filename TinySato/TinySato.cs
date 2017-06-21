@@ -232,8 +232,6 @@ namespace TinySato
                     throw new Win32Exception(Marshal.GetLastWin32Error());
                 if (!Win32.EndPagePrinter(printer))
                     throw new Win32Exception(Marshal.GetLastWin32Error());
-                if (!Win32.EndDocPrinter(printer))
-                    throw new Win32Exception(Marshal.GetLastWin32Error());
                 operation_start_index = 0;
                 this.operations.Clear();
             }
@@ -247,16 +245,19 @@ namespace TinySato
 
         public void Close()
         {
-            if (printer == IntPtr.Zero || Win32.ClosePrinter(printer))
+            if (printer != IntPtr.Zero && !Win32.EndDocPrinter(printer))
             {
-                printer = IntPtr.Zero;
+                var code = Marshal.GetLastWin32Error();
+                var inner = new Win32Exception(code);
+                throw new TinySatoException("failed to end document.", inner);
             }
-            else
+            if (printer != IntPtr.Zero && !Win32.ClosePrinter(printer))
             {
                 var code = Marshal.GetLastWin32Error();
                 var inner = new Win32Exception(code);
                 throw new TinySatoException("failed to close printer.", inner);
             }
+            printer = IntPtr.Zero;
         }
 
         ~Printer()
