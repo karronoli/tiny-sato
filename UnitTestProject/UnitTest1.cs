@@ -23,6 +23,15 @@ namespace UnitTestProject
             return queue.NumberOfJobs;
         }
 
+        protected int getLastJobPageCount()
+        {
+            var server = new System.Printing.LocalPrintServer();
+            var queue = server.GetPrintQueue(printer_name);
+            var last = queue.GetPrintJobInfoCollection().OrderBy(job => job.TimeJobSubmitted).Last();
+            return last.NumberOfPages;
+        }
+
+
         protected double getBarcode128mm(string barcode, double line_width, bool no_quiet_zone = true)
         {
             var line_width_mm = line_width * dot2mm;
@@ -235,16 +244,21 @@ namespace UnitTestProject
                     sato.MoveToY(1);
                     sato.Graphic.AddGraphic(bitmap);
                 }
-                sato.SetPageNumber(1);
+                sato.SetPageNumber(3);
                 sato.AddStream();
 
                 sato.MoveToX((int)Math.Round(10.0 * mm2dot));
                 sato.MoveToY((int)Math.Round(10.0 * mm2dot));
                 sato.Barcode.AddCODE128(2, (int)Math.Round(10.0 * mm2dot), "TEST");
                 sato.SetPageNumber(2);
+                sato.Send();
+
+                // empty page
+                sato.Send(1);
             }
             var after = getJobCount();
-            Assert.AreEqual(before + 1, after);
+            Assert.AreEqual(before + 1, after, "Job count");
+            Assert.AreEqual(3, getLastJobPageCount(), "Variation of page");
         }
     }
 }
