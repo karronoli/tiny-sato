@@ -1,10 +1,11 @@
 ﻿
 namespace TinySato
 {
-    using System.Collections.Generic;
+    using System;
     using System.Drawing;
     using System.Drawing.Imaging;
     using System.Linq;
+    using System.Runtime.InteropServices;
     using System.Text;
 
     public class Graphic
@@ -42,32 +43,28 @@ namespace TinySato
             var region = new Rectangle(0, 0,
                 original.Width - (original.Width % 8),
                 original.Height - (original.Height % 8));
-            using (var bmp1bpp = original.Clone(region, PixelFormat.Format1bppIndexed))
+
+            using (var clone = original.Clone(region, PixelFormat.Format1bppIndexed))
             {
-                var bmp1bit = new byte[bmp1bpp.Height * bmp1bpp.Width];
-                const byte black = 1, white = 0;
-                for (int y = 0, i = 0; y < bmp1bpp.Height; ++y)
+                var bmp = clone.LockBits(region, ImageLockMode.ReadOnly, PixelFormat.Format1bppIndexed);
+                var bmp1bit = new byte[bmp.Height * Math.Abs(bmp.Stride)];
+                Marshal.Copy(bmp.Scan0, bmp1bit, 0, bmp1bit.Length);
+                clone.UnlockBits(bmp);
+
+                var stride = Math.Abs(bmp.Stride);
+                var real_stride = bmp.Width / 8;
+                var graphic = string.Empty;
+                for (var i = 0; i < bmp1bit.Length; i += stride)
                 {
-                    for (int x = 0; x < bmp1bpp.Width; ++x, ++i)
-                    {
-                        var color = bmp1bpp.GetPixel(x, y);
-                        bmp1bit[i] = (color.R == 0 && color.G == 0 && color.B == 0) ?
-                            black : white;
-                    }
+                    graphic +=
+                        string.Join("",
+                            bmp1bit.Skip(i)
+                            .Take(real_stride)
+                            .Select(bits => ((byte)~bits).ToString("X2")));
                 }
-                var bmp8bit = bmp1bit.Select((bit, index) => new { Bit = bit, Index = index })
-                    .GroupBy(data => data.Index / 8, data => data.Bit);
-                this.printer.Add("GH" + string.Format("{0:D3}{1:D3}{2}",
-                    bmp1bpp.Width / 8, bmp1bpp.Height / 8,
-                    string.Join("", bmp8bit.Select(bits =>
-                      ((bits.ElementAt(7))
-                     + (bits.ElementAt(6) << 1)
-                     + (bits.ElementAt(5) << 2)
-                     + (bits.ElementAt(4) << 3)
-                     + (bits.ElementAt(3) << 4)
-                     + (bits.ElementAt(2) << 5)
-                     + (bits.ElementAt(1) << 6)
-                     + (bits.ElementAt(0) << 7)).ToString("X2")))));
+
+                this.printer.Add(string.Format("GH{0:D3}{1:D3}{2}",
+                    region.Width / 8, region.Height / 8, graphic));
             }
         }
 
