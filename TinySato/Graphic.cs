@@ -44,28 +44,19 @@ namespace TinySato
                 original.Width - (original.Width % 8),
                 original.Height - (original.Height % 8));
 
-            using (var clone = original.Clone(region, PixelFormat.Format1bppIndexed))
-            {
-                var bmp = clone.LockBits(region, ImageLockMode.ReadOnly, PixelFormat.Format1bppIndexed);
-                var bmp1bit = new byte[bmp.Height * Math.Abs(bmp.Stride)];
-                Marshal.Copy(bmp.Scan0, bmp1bit, 0, bmp1bit.Length);
-                clone.UnlockBits(bmp);
+            var bmp = original.LockBits(region, ImageLockMode.ReadOnly, PixelFormat.Format1bppIndexed);
+            var stride = Math.Abs(bmp.Stride);
+            var real_stride = bmp.Width / 8;
+            var bmp1bit = new byte[bmp.Height * stride];
+            Marshal.Copy(bmp.Scan0, bmp1bit, 0, bmp1bit.Length);
+            original.UnlockBits(bmp);
 
-                var stride = Math.Abs(bmp.Stride);
-                var real_stride = bmp.Width / 8;
-                var graphic = string.Empty;
-                for (var i = 0; i < bmp1bit.Length; i += stride)
-                {
-                    graphic +=
-                        string.Join("",
-                            bmp1bit.Skip(i)
-                            .Take(real_stride)
-                            .Select(bits => ((byte)~bits).ToString("X2")));
-                }
+            var graphic = string.Join("",
+                Enumerable.Range(0, bmp1bit.Length).Where(i => i % stride < real_stride)
+                .Select(i => ((byte)~bmp1bit[i]).ToString("X2")).ToArray());
 
-                this.printer.Add(string.Format("GH{0:D3}{1:D3}{2}",
-                    region.Width / 8, region.Height / 8, graphic));
-            }
+            this.printer.Add(string.Format("GH{0:D3}{1:D3}{2}",
+                region.Width / 8, region.Height / 8, graphic));
         }
 
         public void AddBox(int horizontal_line_width, int vertical_line_width, int width, int height)
