@@ -1,264 +1,318 @@
-﻿using System;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using TinySato;
-using System.Drawing;
-using System.Linq;
-
 namespace UnitTestProject
 {
+    using Microsoft.VisualStudio.TestTools.UnitTesting;
+    using System;
+    using System.Collections.Generic;
+    using System.Drawing;
+    using System.IO;
+    using System.Linq;
+    using System.Net;
+    using System.Net.Sockets;
+    using System.Printing;
+    using System.Text;
+    using TinySato;
+
     [TestClass]
-    public class UnitTest1
+    public class UnitTest1 : IDisposable
     {
-        protected string printer_name = "T408v";
+        protected const string printer_name = "T408v";
+        protected const string printer_ip = "127.0.0.1";
+        protected const int printer_port = 9100;
+        protected const byte STX = 0x02, ETX = 0x03, ESC = 0x1b;
+        protected TcpListener listener;
 
         const double inch2mm = 25.4;
         const double dpi = 203;
         const double dot2mm = inch2mm / dpi; // 25.4(mm) / 203(dot) -> 0.125(mm/dot)
         const double mm2dot = 1 / dot2mm; // 8(dot/mm)
 
-        protected int getJobCount()
+        public UnitTest1()
         {
-            var server = new System.Printing.LocalPrintServer();
-            var queue = server.GetPrintQueue(printer_name);
-            return queue.NumberOfJobs;
+            listener = new TcpListener(
+                IPAddress.Parse(printer_ip), printer_port) { ExclusiveAddressUse = true };
+            listener.Start();
         }
 
-        protected int getLastJobPageCount()
+        public void Dispose()
         {
-            var server = new System.Printing.LocalPrintServer();
-            var queue = server.GetPrintQueue(printer_name);
-            var last = queue.GetPrintJobInfoCollection().OrderBy(job => job.TimeJobSubmitted).Last();
-            return last.NumberOfPages;
+            listener.Stop();
         }
 
-
-        protected double getBarcode128mm(string barcode, double line_width, bool no_quiet_zone = true)
+        protected byte[] GetBinary()
         {
-            var line_width_mm = line_width * dot2mm;
-            var quiet_zone = Math.Max(0.54, line_width_mm * 10);
-            // 	refer to JIS X 0504:2003
-            return 11 * line_width_mm // start
-                + 11 * barcode.Length * line_width_mm // data
-                + 11 * line_width_mm // check
-                + 13 * line_width_mm // stop
-                + (no_quiet_zone ? 0 : 2 * quiet_zone);
+            var client = listener.AcceptTcpClient();
+            var buffer = new List<byte[]>();
+            using (var stream = client.GetStream())
+            {
+                var raw = new byte[1024];
+                int ret;
+                while ((ret = stream.Read(raw, 0, raw.Length)) != 0)
+                {
+                    var dest = new byte[ret];
+                    Array.Copy(raw, dest, ret);
+                    buffer.Add(dest);
+                }
+            }
+            client.Close();
+            return buffer.SelectMany(x => x).ToArray();
+        }
+
+        protected int GetJobCount()
+        {
+            using (var server = new LocalPrintServer())
+            using (var queue = server.GetPrintQueue(printer_name))
+            {
+                return queue.NumberOfJobs;
+            }
+        }
+
+        protected int GetLastJobPageCount()
+        {
+            using (var server = new LocalPrintServer())
+            using (var queue = server.GetPrintQueue(printer_name))
+            using (var jobs = queue.GetPrintJobInfoCollection())
+            {
+                var last = jobs.OrderBy(job => job.TimeJobSubmitted).Last();
+                return last.NumberOfPages;
+            }
+        }
+
+        [TestCleanup]
+        public void TearDown()
+        {
+            using (var server = new LocalPrintServer())
+            using (var queue = server.GetPrintQueue(printer_name))
+            {
+                while (true)
+                {
+                    using (var jobs = queue.GetPrintJobInfoCollection())
+                    {
+                        if (jobs.Count() == 0)
+                        {
+                            break;
+                        }
+
+                        foreach (var job in jobs)
+                        {
+                            if (job.IsPrinting)
+                            {
+                                job.Cancel();
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         [TestMethod]
         public void MultiJob()
         {
-            var before = getJobCount();
-            var a = new Printer(printer_name, true);
-            var b = new Printer(printer_name);
-            // random operations
-            b.Send(); // send <A><Z>, job +1
-            a.SetCalendar(DateTime.Now); // To add job, need a operation at least.
-            a.Dispose();
-            a.Dispose();
-            b.Close();
-            b.Close();
-            Assert.AreEqual(before + 2, getJobCount());
+            var before = GetJobCount();
+            var now = DateTime.Now;
+            var first = new Printer(printer_name, true);
+            var second = new Printer(printer_name);
+            Assert.AreEqual(before + 2, GetJobCount());
+
+            // send before first job, but block until first job ending.
+            second.Send(); // send <A><Z>, job +1
+            first.SetCalendar(now); // To add job, need a operation at least.
+            // safe to Dispose, Close even if multiple times
+            first.Dispose();
+            first.Dispose();
+            second.Close();
+            second.Close();
+
+            var actual1 = GetBinary();
+            var expected1 = new string[]
+            {
+                "A",
+                string.Format("WT{0:D2}{1:D2}{2:D2}{3:D2}{4:D2}",
+                    now.Year % 1000, now.Month, now.Day, now.Hour, now.Minute),
+                "Z",
+            }.SelectMany(x => (new byte[] { ESC }).Concat(Encoding.ASCII.GetBytes(x))).ToList();
+            expected1.Insert(0, STX);
+            expected1.Add(ETX);
+
+            var actual2 = GetBinary();
+            var expected2 = new string[]
+            {
+                "A",
+                "Z",
+            }.SelectMany(x => (new byte[] { ESC }).Concat(Encoding.ASCII.GetBytes(x))).ToList();
+            expected2.Insert(0, STX);
+            expected2.Add(ETX);
+
+            CollectionAssert.AreEqual(
+                expected1.Concat(expected2).ToArray(),
+                actual1.Concat(actual2).ToArray());
         }
 
         [TestMethod]
-        public void JAN13()
+        public void MultiLabelAtSingleJob()
         {
-            var before = getJobCount();
+            var before = GetJobCount();
+            using (var printer = new Printer(printer_name))
+            {
+                // page 1
+                printer.Barcode.AddCODE128(1, 2, "HELLO");
+                printer.SetPageNumber(3);
+                printer.AddStream();
+                // page 2
+                printer.Barcode.AddCODE128(4, 5, "WORLD");
+                printer.SetPageNumber(6);
+                printer.AddStream();
+                // page 3
+                printer.Barcode.AddCODE128(7, 8, "!!!");
+                printer.Send(9);
+                // page 4 (empty page)
+                printer.Send(1);
+            }
+            Assert.AreEqual(before + 1, GetJobCount(), "Job count");
+            Assert.AreEqual(4, GetLastJobPageCount(), "Variation of page");
+
+            var expected = new string[]
+            {
+                "A",
+                "BG" + "01" + "002" + "HELLO",
+                "Q" + "000003",
+                "Z",
+                "A",
+                "BG" + "04" + "005" + "WORLD",
+                "Q" + "000006",
+                "Z",
+                "A",
+                "BG" + "07" + "008" + "!!!",
+                "Q" + "000009",
+                "Z",
+            }.SelectMany(x => (new byte[] { ESC }).Concat(Encoding.ASCII.GetBytes(x))).ToList();
+            expected.Insert(0, STX);
+            expected.Add(ETX);
+
+            // empty page
+            var expected_empty = new string[]
+            {
+                "A",
+                "Q" + "000001",
+                "Z",
+            }.SelectMany(x => (new byte[] { ESC }).Concat(Encoding.ASCII.GetBytes(x))).ToList();
+            expected_empty.Insert(0, STX);
+            expected_empty.Add(ETX);
+            var actual = GetBinary();
+            CollectionAssert.AreEqual(expected.Concat(expected_empty).ToArray(), actual);
+        }
+
+        [TestMethod]
+        public void ExampleBarcode()
+        {
+            var before = GetJobCount();
             var barcode = "1234567890128";
 
-            var sato = new Printer(printer_name);
-            sato.SetSensorType(SensorType.Transparent);
-            sato.SetPaperSize((int)(80 * mm2dot), (int)(104 * mm2dot));
-
-            sato.MoveToX(80);
-            sato.MoveToY(80);
-            sato.Barcode.AddJAN13(3, 70, barcode);
-
-            sato.SetPageNumber(1);
-            sato.Send();
-            sato.Dispose();
-
-            var after = getJobCount();
-            Assert.AreEqual(before + 1, after);
-        }
-
-        [TestMethod]
-        public void GapLabelPrinting()
-        {
-            var before = getJobCount();
-            var barcode = "A-12-345";
-            int width = (int)(104 * mm2dot), height = (int)(80 * mm2dot);
-
-            var sato = new Printer(printer_name);
-            sato.SetSensorType(SensorType.Transparent);
-            sato.SetPaperSize(height, width);
-            sato.SetPageNumber(1);
-
-            sato.MoveToX(480);
-            sato.MoveToY(400);
-            sato.Barcode.AddCODE128(1, 100, barcode);
-
-            using (var font = new Font("Consolas", 90))
-            using (var bitmap = new Bitmap(width, font.Height))
-            using (var g = Graphics.FromImage(bitmap))
-            using (var sf = new StringFormat())
-            {
-                // Draw by black on white background.
-                var box = new Rectangle(0, 0, bitmap.Width, bitmap.Height);
-                g.FillRectangle(Brushes.White, box);
-
-                sf.Alignment = StringAlignment.Center;
-                sf.LineAlignment = StringAlignment.Center;
-                g.DrawString(barcode, font, Brushes.Black, box, sf);
-
-                sato.MoveToX(1);
-                sato.MoveToY(1);
-                sato.Graphic.AddBitmap(bitmap);
-            }
-            sato.Send();
-            sato.Dispose();
-
-            var after = getJobCount();
-            Assert.AreEqual(before + 1, after);
-        }
-
-        [TestMethod]
-        public void EyeMarkPrinting()
-        {
-            var before = getJobCount();
-            var barcode = "ABCDEF1234567890";
-            var paper_width = 50.0 * mm2dot;
-            var paper_height = 20.0 * mm2dot;
-
-            var sato = new Printer(printer_name);
-            sato.SetSensorType(SensorType.Reflection);
-            sato.SetGapSizeBetweenLabels(
-                (int)Math.Round(2.0 * mm2dot));
-            sato.SetPaperSize(
-                (int)Math.Round(paper_height),
-                (int)Math.Round(paper_width));
-
-            // reset start position
-            sato.SetStartPosition(0, 0);
-            sato.MoveToX(48);
-            sato.MoveToY(24);
-            sato.Barcode.AddCODE128(1, 48, barcode);
-
-            // calibrate start position
-            sato.SetStartPosition(24, 88);
-            sato.Barcode.AddCODE128(1, 48, barcode, (Size s) =>
-            {
-                var x = (paper_width - s.Width) / 2.0;
-                sato.MoveToX((int)Math.Round(x));
-                sato.MoveToY(1);
-            });
-
-            // reset start position
-            sato.SetStartPosition(0, 0);
-            sato.Send(1);
-            sato.Dispose();
-
-            var after = getJobCount();
-            Assert.AreEqual(before + 1, after);
-        }
-
-        [TestMethod]
-        public void Modulus16()
-        {
-            var base_number = 16;
-            var barcode = "A1234A";
-            int check_digit_index = base_number -
-                barcode.Select(
-                  symbol => Barcode.CodabarSymbols.IndexOf(symbol)).
-                    Sum() % base_number;
-            Assert.AreEqual('6', Barcode.CodabarSymbols[check_digit_index]);
-        }
-
-        [TestMethod]
-        public void IgnoreSensorPrinting()
-        {
-            var before = getJobCount();
-            using (var sato = new Printer(printer_name, true))
-            {
-                sato.SetSensorType(SensorType.Ignore);
-                sato.SetPaperSize(944, 101);
-                sato.SetPageNumber(1);
-                sato.MoveToX(1);
-                sato.MoveToY(1);
-                sato.Barcode.AddCODE128(1, 30, "HELLO");
-            }
-            var after = getJobCount();
-            Assert.AreEqual(before + 1, after);
-        }
-
-        [TestMethod]
-        public void GraphicsOpecode()
-        {
-            var before = getJobCount();
-            using (var sato = new Printer(printer_name, true))
+            using (var sato = new Printer(printer_name))
             {
                 sato.SetSensorType(SensorType.Reflection);
-
-                int height = (int)Math.Round(50.0 * mm2dot),
-                    width = (int)Math.Round(88.0 * mm2dot),
-                    sub_width = (int)Math.Round(85.0 * mm2dot),
-                    sub_height = (int)Math.Round(50.0 * mm2dot);
-                bool draw_rectangle_by_sbpl = true;
                 sato.SetGapSizeBetweenLabels((int)Math.Round(2.0 * mm2dot));
-                sato.SetPaperSize(height, width);
-                sato.SetStartPosition((int)Math.Round(1.0 * mm2dot), 0);
+                sato.SetDensity(3, DensitySpec.A);
+                sato.SetSpeed(4);
+                sato.SetPaperSize((int)(80 * mm2dot), (int)(104 * mm2dot));
+                sato.SetStartPosition(0, 0);
 
-                sato.MoveToX((int)Math.Round(5.0 * mm2dot));
-                sato.MoveToY((int)Math.Round(5.0 * mm2dot));
-                sato.Barcode.AddCODE128(1, (int)Math.Round(5.0 * mm2dot), "TEST");
+                sato.MoveToX(80);
+                sato.MoveToY(80);
+                sato.Barcode.AddJAN13(3, 70, barcode);
+                sato.MoveToX(8);
+                sato.MoveToY(8);
+                sato.Barcode.AddCodabar(1, 2, barcode);
 
-                if (draw_rectangle_by_sbpl)
+                sato.SetPageNumber(1);
+                sato.Send();
+            }
+
+            var after = GetJobCount();
+            Assert.AreEqual(before + 1, after);
+
+            var expected = new string[] {
+                "A",
+                "IG" + "0",
+                "Z",
+                "A",
+                "TG16",
+                "Z",
+                "A",
+                "#E3A",
+                "Z",
+                "A",
+                "CS04",
+                "Z",
+                "A",
+                "A1" + "0639" + "0831",
+                "Z",
+                "A",
+                "A3V+000H+000",
+                "H" + "0080",
+                "V" + "0080",
+                "BD" + "3" + "03" + "070" + "1234567890128",
+                "H" + "0008",
+                "V" + "0008",
+                "B" + "0" + "01" + "002" + "A1234567890128A",
+                "Q" + "000001",
+                "Z"
+            }.SelectMany(x => (new byte[] { ESC }).Concat(Encoding.ASCII.GetBytes(x))).ToList();
+            expected.Insert(0, STX);
+            expected.Add(ETX);
+            var actual = GetBinary();
+            CollectionAssert.AreEqual(expected.ToArray(), actual);
+        }
+
+        [TestMethod]
+        public void ExampleGraphic()
+        {
+            var before = GetJobCount();
+            using (var sato = new Printer(printer_name))
+            {
+                int width = (int)Math.Round(85.0 * mm2dot),
+                    height = (int)Math.Round(50.0 * mm2dot);
+
+                sato.MoveToX((int)Math.Round(1.3 * mm2dot));
+                sato.MoveToY(1);
+                sato.Graphic.AddBox(
+                    (int)Math.Round(0.5 * mm2dot),
+                    (int)Math.Round(0.5 * mm2dot),
+                    width,
+                    height);
+
+                using (var bitmap = (Bitmap)Image.FromFile("input.png"))
                 {
-                    sato.MoveToX((int)Math.Round(1.3 * mm2dot));
-                    sato.MoveToY(1);
-                    sato.Graphic.AddBox(
-                        (int)Math.Round(0.5 * mm2dot),
-                        (int)Math.Round(0.5 * mm2dot),
-                        sub_width,
-                        sub_height);
-                }
-
-                using (var font = new Font("Consolas", 30))
-                using (var bitmap = new Bitmap(sub_width, sub_height))
-                using (var g = Graphics.FromImage(bitmap))
-                using (var sf = new StringFormat())
-                {
-                    var box = new Rectangle(0, 0, bitmap.Width, bitmap.Height);
-                    g.FillRectangle(Brushes.White, box);
-                    sf.Alignment = StringAlignment.Center;
-                    sf.LineAlignment = StringAlignment.Center;
-                    g.DrawString("ABCDEFGHIJKLMNOPQRSTUVWXYZ", font, Brushes.Black, box, sf);
-
-                    if (!draw_rectangle_by_sbpl)
-                    {
-                        g.DrawRectangle(new Pen(Color.Black, 8),
-                            new Rectangle(0, 0, bitmap.Width, bitmap.Height));
-                    }
-
                     sato.MoveToX((int)Math.Round(1.3 * mm2dot));
                     sato.MoveToY(1);
                     sato.Graphic.AddGraphic(bitmap);
+                    sato.MoveToX(1);
+                    sato.MoveToY(1);
+                    sato.Graphic.AddBitmap(bitmap);
                 }
-                sato.SetPageNumber(3);
-                sato.AddStream();
-
-                sato.MoveToX((int)Math.Round(10.0 * mm2dot));
-                sato.MoveToY((int)Math.Round(10.0 * mm2dot));
-                sato.Barcode.AddCODE128(2, (int)Math.Round(10.0 * mm2dot), "TEST");
-                sato.SetPageNumber(2);
+                sato.SetPageNumber(1);
                 sato.Send();
-
-                // empty page
-                sato.Send(1);
             }
-            var after = getJobCount();
+            var after = GetJobCount();
             Assert.AreEqual(before + 1, after, "Job count");
-            Assert.AreEqual(3, getLastJobPageCount(), "Variation of page");
+
+            var _expected = new string[] {
+                "A",
+                "H0010",
+                "V0001",
+                "FW0404V0400H0679",
+                "H0010",
+                "V0001",
+                "GH108067" + File.ReadAllText("output.txt"),
+                "H0001",
+                "V0001",
+                string.Format("GM{0},", new FileInfo("output.bmp").Length),
+            }.SelectMany(x => (new byte[] { ESC }).Concat(Encoding.ASCII.GetBytes(x)));
+            _expected = _expected.Concat(File.ReadAllBytes("output.bmp"));
+            _expected = _expected.Concat(new byte[] { ESC }.Concat(Encoding.ASCII.GetBytes("Q000001")));
+
+            var expected = new byte[] { STX }.Concat(_expected).Concat(new byte[] { ESC, Convert.ToByte('Z'), ETX });
+            var actual = GetBinary();
+            CollectionAssert.AreEqual(expected.ToArray(), actual);
         }
     }
 }
