@@ -25,7 +25,7 @@ namespace TinySato
         private bool disposed = false;
         protected bool send_at_dispose_if_not_yet_sent = false;
         protected int operation_start_index = 1;
-        protected IntPtr printer = IntPtr.Zero;
+        private IntPtr printer = IntPtr.Zero;
         protected List<byte[]> operations = new List<byte[]> {
             new byte[] { Convert.ToByte(STX) }
         };
