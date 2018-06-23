@@ -285,9 +285,9 @@ namespace TinySato
 
             if (disposing)
             {
+                this.Close();
                 this.operations.Clear();
             }
-            this.Close();
             disposed = true;
         }
     }
