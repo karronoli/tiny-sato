@@ -48,12 +48,12 @@ namespace TinySato
 
         public Printer(string name)
         {
-            if (!Win32.OpenPrinter(name.Normalize(), out printer, IntPtr.Zero))
+            if (!UnsafeNativeMethods.OpenPrinter(name.Normalize(), out printer, IntPtr.Zero))
                 throw new TinySatoException("failed to use printer.",
                     new Win32Exception(Marshal.GetLastWin32Error()));
             const int level = 1; // for not win98
-            var di = new DOCINFOA() { pDataType = "raw", pDocName = "RAW DOCUMENT" };
-            if (!Win32.StartDocPrinter(printer, level, di))
+            var di = new DOCINFO() { pDataType = "raw", pDocName = "RAW DOCUMENT" };
+            if (!UnsafeNativeMethods.StartDocPrinter(printer, level, di))
                 throw new Win32Exception(Marshal.GetLastWin32Error());
             this.Barcode = new Barcode(this);
             this.Graphic = new Graphic(this);
@@ -192,11 +192,11 @@ namespace TinySato
             int written = 0;
             try
             {
-                if (!Win32.StartPagePrinter(printer))
+                if (!UnsafeNativeMethods.StartPagePrinter(printer))
                     throw new Win32Exception(Marshal.GetLastWin32Error());
-                if (!Win32.WritePrinter(printer, raw, flatten.Length, out written))
+                if (!UnsafeNativeMethods.WritePrinter(printer, raw, flatten.Length, out written))
                     throw new Win32Exception(Marshal.GetLastWin32Error());
-                if (!Win32.EndPagePrinter(printer))
+                if (!UnsafeNativeMethods.EndPagePrinter(printer))
                     throw new Win32Exception(Marshal.GetLastWin32Error());
                 this.operations.Clear();
                 operation_start_index = 0;
@@ -227,11 +227,11 @@ namespace TinySato
             int written = 0;
             try
             {
-                if (!Win32.StartPagePrinter(printer))
+                if (!UnsafeNativeMethods.StartPagePrinter(printer))
                     throw new Win32Exception(Marshal.GetLastWin32Error());
-                if (!Win32.WritePrinter(printer, raw, flatten.Length, out written))
+                if (!UnsafeNativeMethods.WritePrinter(printer, raw, flatten.Length, out written))
                     throw new Win32Exception(Marshal.GetLastWin32Error());
-                if (!Win32.EndPagePrinter(printer))
+                if (!UnsafeNativeMethods.EndPagePrinter(printer))
                     throw new Win32Exception(Marshal.GetLastWin32Error());
                 this.operations.Clear();
                 this.operations.Add(new byte[] { Convert.ToByte(STX) });
@@ -247,13 +247,13 @@ namespace TinySato
 
         public void Close()
         {
-            if (printer != IntPtr.Zero && !Win32.EndDocPrinter(printer))
+            if (printer != IntPtr.Zero && !UnsafeNativeMethods.EndDocPrinter(printer))
             {
                 var code = Marshal.GetLastWin32Error();
                 var inner = new Win32Exception(code);
                 throw new TinySatoException("failed to end document.", inner);
             }
-            if (printer != IntPtr.Zero && !Win32.ClosePrinter(printer))
+            if (printer != IntPtr.Zero && !UnsafeNativeMethods.ClosePrinter(printer))
             {
                 var code = Marshal.GetLastWin32Error();
                 var inner = new Win32Exception(code);
