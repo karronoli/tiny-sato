@@ -45,8 +45,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Barcode.cs" />
-    <Compile Include="Printer\Density.cs" />
     <Compile Include="Graphic.cs" />
+    <Compile Include="Printer\Density.cs" />
     <Compile Include="Printer\Sensor.cs" />
     <Compile Include="Printer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
