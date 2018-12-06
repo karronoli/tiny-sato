@@ -1,5 +1,4 @@
-﻿
-namespace TinySato
+﻿namespace TinySato
 {
     using System;
     using System.Collections.Generic;
@@ -8,19 +7,7 @@ namespace TinySato
     using System.Runtime.InteropServices;
     using System.Text;
 
-    public enum SensorType
-    {
-        Reflection = 0,
-        Transparent = 1,
-        Ignore = 2
-    }
-
-    public enum DensitySpec
-    {
-        A, B, C, D, E, F
-    }
-
-    public class Printer : IDisposable
+    public partial class Printer : IDisposable
     {
         private bool disposed = false;
         protected bool send_at_dispose_if_not_yet_sent = false;
@@ -85,16 +72,6 @@ namespace TinySato
             operation_start_index += 3;
         }
 
-        public void SetDensity(int density, DensitySpec spec)
-        {
-            if (!(1 <= density && density <= 5))
-                throw new TinySatoException("Specify 1-5 density");
-            Insert(operation_start_index + 0, OPERATION_A);
-            Insert(operation_start_index + 1, ESC + string.Format("#E{0:D1}{1}", density, spec.ToString("F")));
-            Insert(operation_start_index + 2, OPERATION_Z);
-            operation_start_index += 3;
-        }
-
         public void SetSpeed(int speed)
         {
             if (!(1 <= speed && speed <= 5))
@@ -147,14 +124,6 @@ namespace TinySato
             if (!(1 <= number_of_pages && number_of_pages <= 999999))
                 throw new TinySatoException("Specify 1-999999 pages.");
             Add(string.Format("Q{0:D6}", number_of_pages));
-        }
-
-        public void SetSensorType(SensorType type)
-        {
-            Insert(operation_start_index + 0, OPERATION_A);
-            Insert(operation_start_index + 1, ESC + string.Format("IG{0:D1}", (int)type));
-            Insert(operation_start_index + 2, OPERATION_Z);
-            operation_start_index += 3;
         }
 
         public void Add(string operation)
