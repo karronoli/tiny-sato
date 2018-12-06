@@ -13,32 +13,36 @@ namespace UnitTestProject
     using TinySato;
 
     [TestClass]
-    public class UnitTest1 : IDisposable
+    public class UnitTest1
     {
         protected const string printer_name = "T408v";
         protected const string printer_ip = "127.0.0.1";
         protected const int printer_port = 9100;
         protected const byte STX = 0x02, ETX = 0x03, ESC = 0x1b;
-        protected TcpListener listener;
+        protected static TcpListener listener;
 
         const double inch2mm = 25.4;
         const double dpi = 203;
         const double dot2mm = inch2mm / dpi; // 25.4(mm) / 203(dot) -> 0.125(mm/dot)
         const double mm2dot = 1 / dot2mm; // 8(dot/mm)
 
-        public UnitTest1()
+        [ClassInitialize]
+        public static void Listen(TestContext context)
         {
-            listener = new TcpListener(
-                IPAddress.Parse(printer_ip), printer_port) { ExclusiveAddressUse = true };
+            listener = new TcpListener(IPAddress.Parse(printer_ip), printer_port)
+            {
+                ExclusiveAddressUse = true
+            };
             listener.Start();
         }
 
-        public void Dispose()
+        [ClassCleanup]
+        public static void Stop()
         {
             listener.Stop();
         }
 
-        protected byte[] GetBinary()
+        protected static byte[] GetBinary()
         {
             var client = listener.AcceptTcpClient();
             var buffer = new List<byte[]>();
@@ -57,7 +61,7 @@ namespace UnitTestProject
             return buffer.SelectMany(x => x).ToArray();
         }
 
-        protected int GetJobCount()
+        protected static int GetJobCount()
         {
             using (var server = new LocalPrintServer())
             using (var queue = server.GetPrintQueue(printer_name))
@@ -66,7 +70,7 @@ namespace UnitTestProject
             }
         }
 
-        protected int GetLastJobPageCount()
+        protected static int GetLastJobPageCount()
         {
             using (var server = new LocalPrintServer())
             using (var queue = server.GetPrintQueue(printer_name))
@@ -116,10 +120,7 @@ namespace UnitTestProject
             // send before first job, but block until first job ending.
             second.Send(); // send <A><Z>, job +1
             first.SetCalendar(now); // To add job, need a operation at least.
-            // safe to Dispose, Close even if multiple times
             first.Dispose();
-            first.Dispose();
-            second.Close();
             second.Close();
 
             var actual1 = GetBinary();
