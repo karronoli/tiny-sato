@@ -113,14 +113,14 @@ namespace UnitTestProject
         {
             var before = GetJobCount();
             var now = DateTime.Now;
-            var first = new Printer(printer_name, true);
+            var first = new Printer(printer_name);
             var second = new Printer(printer_name);
             Assert.AreEqual(before + 2, GetJobCount());
 
             // send before first job, but block until first job ending.
             second.Send(); // send <A><Z>, job +1
             first.SetCalendar(now); // To add job, need a operation at least.
-            first.Dispose();
+            first.Close();
             second.Close();
 
             var actual1 = GetBinary();

@@ -16,7 +16,6 @@
     {
         private bool disposed = false;
 
-        protected bool send_at_dispose_if_not_yet_sent = false;
         private IntPtr printer = IntPtr.Zero;
 
         static readonly TimeSpan ConnectWaitTimeout = TimeSpan.FromSeconds(3);
@@ -314,11 +313,6 @@
         {
             if (disposed)
                 return;
-
-            if (this.operations.Count > 0 && send_at_dispose_if_not_yet_sent)
-            {
-                this.Send();
-            }
 
             if (disposing)
             {
