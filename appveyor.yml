@@ -8,13 +8,6 @@ build:
 artifacts:
   - path: TinySato\bin\Release\TinySato.dll
     name: TinySato
-install:
-  - ps: Invoke-WebRequest -Uri 'http://www.satoworldwide.com/sites/satoworldwide_com/Uploads/Files/Downloads/GalleryDriver/7.4.10/SATO_7410_12549.zip' -Outfile 'SATO_7410_12549.zip'
-  - 7z x SATO_7410_12549.zip
-  - certutil -addstore TrustedPublisher sato.cer
-  - 'net start spooler'
-  - ps: Add-PrinterPort -Name MyLoopback -PrinterHostAddress 127.0.0.1 -PortNumber 9100
-  - rundll32 printui.dll PrintUIEntry /if /f SATO\sato.inf /r MyLoopback /m "SATO CT408i" /b T408v
 
 deploy:
   release: tinysato-v$(appveyor_build_version)
