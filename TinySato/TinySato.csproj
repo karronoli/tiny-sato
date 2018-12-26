@@ -45,6 +45,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Barcode.cs" />
+    <Compile Include="Communication\JobStatus.cs" />
+    <Compile Include="ConnectionType.cs" />
     <Compile Include="Graphic.cs" />
     <Compile Include="Printer\Density.cs" />
     <Compile Include="Printer\Sensor.cs" />
