@@ -23,7 +23,12 @@
         public Graphic Graphic { get; }
 
         internal const char
-            STX = '\x02', ETX = '\x03', ESC = '\x1b';
+            SOH = '\x01', STX = '\x02', ETX = '\x03', ENQ = '\x05', ESC = '\x1b';
+        internal static readonly byte
+            ASCII_SOH = Convert.ToByte(SOH), ASCII_STX = Convert.ToByte(STX),
+            ASCII_ETX = Convert.ToByte(ETX),
+            ASCII_ENQ = Convert.ToByte(ENQ), ASCII_ESC = Convert.ToByte(ESC);
+
         protected readonly string
             OPERATION_A = ESC + "A",
             OPERATION_Z = ESC + "Z";
