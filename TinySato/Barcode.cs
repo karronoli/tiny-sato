@@ -110,12 +110,12 @@ namespace TinySato
         /// <summary>
         /// Specify a 1:2 or 1:3 or 2:5 ratio Codabar barcode with a narrow bar and wide bar.
         /// </summary>
-        /// <param name="r">Ratio</param>
-        /// <param name="thin_bar_width">Thin Bar Width</param>
-        /// <param name="bar_top_length">Bar Top Length</param>
-        /// <param name="print_data">Print Data</param>
-        /// <param name="start_char">Start Character</param>
-        /// <param name="stop_char">Stop Character</param>
+        /// <param name="r">Ratio.</param>
+        /// <param name="thin_bar_width">Thin Bar Width.</param>
+        /// <param name="bar_top_length">Bar Top Length.</param>
+        /// <param name="print_data">Print Data.</param>
+        /// <param name="start_char">Start Character.</param>
+        /// <param name="stop_char">Stop Character.</param>
         public void AddCodabar(Ratio r, int thin_bar_width, int bar_top_length, string print_data,
             char start_char, char stop_char)
         {

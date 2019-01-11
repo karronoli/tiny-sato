@@ -1,62 +1,96 @@
-﻿
-namespace TinySato
+﻿namespace TinySato
 {
+    using Communication;
     using System;
     using System.Collections.Generic;
     using System.ComponentModel;
+    using System.Diagnostics;
     using System.Linq;
+    using System.Net;
+    using System.Net.Sockets;
     using System.Runtime.InteropServices;
     using System.Text;
+    using System.Threading.Tasks;
 
-    public enum SensorType
-    {
-        Reflection = 0,
-        Transparent = 1,
-        Ignore = 2
-    }
-
-    public enum DensitySpec
-    {
-        A, B, C, D, E, F
-    }
-
-    public class Printer : IDisposable
+    public partial class Printer : IDisposable
     {
         private bool disposed = false;
-        protected bool send_at_dispose_if_not_yet_sent = false;
+
+        private IntPtr printer = IntPtr.Zero;
+
+        static readonly TimeSpan ConnectWaitTimeout = TimeSpan.FromSeconds(3);
+        static readonly TimeSpan PrintSendTimeout = TimeSpan.FromMilliseconds(200); // CT408i driver default setting
+        private TcpClient client;
+
         protected int operation_start_index = 1;
-        protected IntPtr printer = IntPtr.Zero;
         protected List<byte[]> operations = new List<byte[]> {
             new byte[] { Convert.ToByte(STX) }
         };
+
         protected int soft_offset_x = 0;
         protected int soft_offset_y = 0;
 
         public Barcode Barcode { get; }
         public Graphic Graphic { get; }
+        public ConnectionType ConnectionType { get; }
 
         internal const char
-            STX = '\x02', ETX = '\x03', ESC = '\x1b';
+            SOH = '\x01', STX = '\x02', ETX = '\x03', ENQ = '\x05', ESC = '\x1b';
+        internal static readonly byte
+            ASCII_SOH = Convert.ToByte(SOH), ASCII_STX = Convert.ToByte(STX),
+            ASCII_ETX = Convert.ToByte(ETX),
+            ASCII_ENQ = Convert.ToByte(ENQ), ASCII_ESC = Convert.ToByte(ESC);
+
         protected readonly string
             OPERATION_A = ESC + "A",
             OPERATION_Z = ESC + "Z";
 
-        public Printer(string PrinterName, bool send_at_dispose_if_not_yet_sent) : this(PrinterName)
-        {
-            this.send_at_dispose_if_not_yet_sent = send_at_dispose_if_not_yet_sent;
-        }
+        protected JobStatus status;
 
         public Printer(string name)
         {
-            if (!Win32.OpenPrinter(name.Normalize(), out printer, IntPtr.Zero))
+            this.ConnectionType = ConnectionType.Driver;
+            this.Barcode = new Barcode(this);
+            this.Graphic = new Graphic(this);
+
+            if (!UnsafeNativeMethods.OpenPrinter(name.Normalize(), out printer, IntPtr.Zero))
                 throw new TinySatoException("failed to use printer.",
                     new Win32Exception(Marshal.GetLastWin32Error()));
             const int level = 1; // for not win98
-            var di = new DOCINFOA() { pDataType = "raw", pDocName = "RAW DOCUMENT" };
-            if (!Win32.StartDocPrinter(printer, level, di))
+            var di = new DOCINFO() { pDataType = "raw", pDocName = "RAW DOCUMENT" };
+            if (!UnsafeNativeMethods.StartDocPrinter(printer, level, di))
                 throw new Win32Exception(Marshal.GetLastWin32Error());
+        }
+
+        public Printer(IPEndPoint endpoint)
+        {
+            this.ConnectionType = ConnectionType.IP;
             this.Barcode = new Barcode(this);
             this.Graphic = new Graphic(this);
+
+            this.client = new TcpClient() { SendTimeout = PrintSendTimeout.Milliseconds };
+            try
+            {
+                this.client.Connect(endpoint);
+            }
+            catch (SocketException e)
+            {
+                throw new TinySatoException($"The printer is maybe none in the same network. endpoint: {endpoint}", e);
+            }
+
+            this.status = new JobStatus(client.GetStream());
+            if (!status.OK)
+            {
+                var timer = Stopwatch.StartNew();
+                while (ConnectWaitTimeout > timer.Elapsed)
+                {
+                    Task.Delay(TimeSpan.FromMilliseconds(100)).Wait();
+                    this.status = status.Refresh();
+                    if (status.OK) break;
+                }
+                if (!status.OK)
+                    throw new TinySatoException($"Printer is busy. endpoint: {endpoint}, status: {status}");
+            }
         }
 
         public void MoveToX(int x)
@@ -81,16 +115,6 @@ namespace TinySato
                 throw new TinySatoException("Specify 0-64 dots.");
             Insert(operation_start_index + 0, OPERATION_A);
             Insert(operation_start_index + 1, ESC + string.Format("TG{0:D2}", y));
-            Insert(operation_start_index + 2, OPERATION_Z);
-            operation_start_index += 3;
-        }
-
-        public void SetDensity(int density, DensitySpec spec)
-        {
-            if (!(1 <= density && density <= 5))
-                throw new TinySatoException("Specify 1-5 density");
-            Insert(operation_start_index + 0, OPERATION_A);
-            Insert(operation_start_index + 1, ESC + string.Format("#E{0:D1}{1}", density, spec.ToString("F")));
             Insert(operation_start_index + 2, OPERATION_Z);
             operation_start_index += 3;
         }
@@ -149,14 +173,6 @@ namespace TinySato
             Add(string.Format("Q{0:D6}", number_of_pages));
         }
 
-        public void SetSensorType(SensorType type)
-        {
-            Insert(operation_start_index + 0, OPERATION_A);
-            Insert(operation_start_index + 1, ESC + string.Format("IG{0:D1}", (int)type));
-            Insert(operation_start_index + 2, OPERATION_Z);
-            operation_start_index += 3;
-        }
-
         public void Add(string operation)
         {
             operations.Add(Encoding.ASCII.GetBytes(ESC + operation));
@@ -187,25 +203,10 @@ namespace TinySato
             operation_start_index = operations.Count;
 
             var flatten = operations.SelectMany(x => x).ToArray();
-            var raw = Marshal.AllocCoTaskMem(flatten.Length);
-            Marshal.Copy(flatten, 0, raw, flatten.Length);
-            int written = 0;
-            try
-            {
-                if (!Win32.StartPagePrinter(printer))
-                    throw new Win32Exception(Marshal.GetLastWin32Error());
-                if (!Win32.WritePrinter(printer, raw, flatten.Length, out written))
-                    throw new Win32Exception(Marshal.GetLastWin32Error());
-                if (!Win32.EndPagePrinter(printer))
-                    throw new Win32Exception(Marshal.GetLastWin32Error());
-                this.operations.Clear();
-                operation_start_index = 0;
-            }
-            catch (Win32Exception inner)
-            {
-                throw new TinySatoException("failed to send operations.", inner);
-            }
-            finally { Marshal.FreeCoTaskMem(raw); }
+            this.Send(flatten);
+            this.operations.Clear();
+            operation_start_index = 0;
+
             return flatten.Length;
         }
 
@@ -222,38 +223,73 @@ namespace TinySato
             operations.Add(Encoding.ASCII.GetBytes(OPERATION_Z + ETX));
 
             var flatten = operations.SelectMany(x => x).ToArray();
-            var raw = Marshal.AllocCoTaskMem(flatten.Length);
-            Marshal.Copy(flatten, 0, raw, flatten.Length);
-            int written = 0;
+            this.Send(flatten);
+            this.operations.Clear();
+            this.operations.Add(new byte[] { Convert.ToByte(STX) });
+            operation_start_index = this.operations.Count();
+
+            return flatten.Length;
+        }
+
+        void Send(byte[] raw)
+        {
+            if (printer != IntPtr.Zero) SendWin32(raw);
+            else if (client != null) SendTcp(raw);
+            else throw new NotImplementedException();
+        }
+
+        void SendWin32(byte[] raw)
+        {
+            var ptr = Marshal.AllocCoTaskMem(raw.Length);
+            Marshal.Copy(raw, 0, ptr, raw.Length);
+
             try
             {
-                if (!Win32.StartPagePrinter(printer))
+                if (!UnsafeNativeMethods.StartPagePrinter(printer))
                     throw new Win32Exception(Marshal.GetLastWin32Error());
-                if (!Win32.WritePrinter(printer, raw, flatten.Length, out written))
+                if (!UnsafeNativeMethods.WritePrinter(printer, ptr, raw.Length, out int written))
                     throw new Win32Exception(Marshal.GetLastWin32Error());
-                if (!Win32.EndPagePrinter(printer))
+                if (!UnsafeNativeMethods.EndPagePrinter(printer))
                     throw new Win32Exception(Marshal.GetLastWin32Error());
-                this.operations.Clear();
-                this.operations.Add(new byte[] { Convert.ToByte(STX) });
-                operation_start_index = this.operations.Count();
             }
-            catch (Win32Exception inner)
+            catch (Win32Exception e)
             {
-                throw new TinySatoException("failed to send operations.", inner);
+                throw new TinySatoException("failed to send operations for windows printer.", e);
             }
-            finally { Marshal.FreeCoTaskMem(raw); }
-            return flatten.Length;
+            finally
+            {
+                Marshal.FreeCoTaskMem(ptr);
+            }
+        }
+
+        void SendTcp(byte[] raw)
+        {
+            try
+            {
+                this.status = status.Refresh();
+                if (!status.OK)
+                    throw new TinySatoException($"Printer is failure. {status}");
+                client.Client.Send(raw);
+            }
+            catch (SocketException e)
+            {
+                throw new TinySatoException("failed to send operations by tcp.", e);
+            }
         }
 
         public void Close()
         {
-            if (printer != IntPtr.Zero && !Win32.EndDocPrinter(printer))
+            if (client != null)
+            {
+                client.Close();
+            }
+            if (printer != IntPtr.Zero && !UnsafeNativeMethods.EndDocPrinter(printer))
             {
                 var code = Marshal.GetLastWin32Error();
                 var inner = new Win32Exception(code);
                 throw new TinySatoException("failed to end document.", inner);
             }
-            if (printer != IntPtr.Zero && !Win32.ClosePrinter(printer))
+            if (printer != IntPtr.Zero && !UnsafeNativeMethods.ClosePrinter(printer))
             {
                 var code = Marshal.GetLastWin32Error();
                 var inner = new Win32Exception(code);
@@ -278,16 +314,11 @@ namespace TinySato
             if (disposed)
                 return;
 
-            if (this.operations.Count > 0 && send_at_dispose_if_not_yet_sent)
-            {
-                this.Send();
-            }
-
             if (disposing)
             {
-                this.operations.Clear();
+                this.Close();
+                if (client != null) client.Dispose();
             }
-            this.Close();
             disposed = true;
         }
     }
