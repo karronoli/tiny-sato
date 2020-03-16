@@ -50,7 +50,7 @@
             }
             catch (IOException e)
             {
-                throw new TinySatoException("The printer is not respond.", e);
+                throw new TinySatoIOException("The printer is not respond.", e);
             }
             finally
             {

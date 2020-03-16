@@ -59,7 +59,8 @@
             const int level = 1; // for not win98
             var di = new DOCINFO() { pDataType = "raw", pDocName = "RAW DOCUMENT" };
             if (!UnsafeNativeMethods.StartDocPrinter(printer, level, di))
-                throw new Win32Exception(Marshal.GetLastWin32Error());
+                throw new TinySatoIOException($"Failed to use printer. name:{name}",
+                    new Win32Exception(Marshal.GetLastWin32Error()));
         }
 
         public Printer(IPEndPoint endpoint)
@@ -89,7 +90,7 @@
                     if (status.OK) break;
                 }
                 if (!status.OK)
-                    throw new TinySatoException($"Printer is busy. endpoint: {endpoint}, status: {status}");
+                    throw new TinySatoIOException($"Printer is busy. endpoint: {endpoint}, status: {status}");
             }
         }
 
@@ -254,7 +255,7 @@
             }
             catch (Win32Exception e)
             {
-                throw new TinySatoException("failed to send operations for windows printer.", e);
+                throw new TinySatoIOException("failed to send operations for windows printer.", e);
             }
             finally
             {
@@ -273,7 +274,7 @@
             }
             catch (SocketException e)
             {
-                throw new TinySatoException("failed to send operations by tcp.", e);
+                throw new TinySatoIOException("failed to send operations by tcp.", e);
             }
         }
 
@@ -287,13 +288,13 @@
             {
                 var code = Marshal.GetLastWin32Error();
                 var inner = new Win32Exception(code);
-                throw new TinySatoException("failed to end document.", inner);
+                throw new TinySatoIOException("failed to end document.", inner);
             }
             if (printer != IntPtr.Zero && !UnsafeNativeMethods.ClosePrinter(printer))
             {
                 var code = Marshal.GetLastWin32Error();
                 var inner = new Win32Exception(code);
-                throw new TinySatoException("failed to close printer.", inner);
+                throw new TinySatoIOException("failed to close printer.", inner);
             }
             printer = IntPtr.Zero;
         }
