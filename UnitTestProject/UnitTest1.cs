@@ -7,26 +7,20 @@ namespace UnitTestProject
     using System.IO;
     using System.Linq;
     using System.Net;
-    using System.Net.NetworkInformation;
     using System.Net.Sockets;
     using System.Text;
     using System.Threading.Tasks;
     using TinySato;
-    using TinySato.Search;
 
     [TestClass]
     public class UnitTest1
     {
-        const string printer_mac = "02:00:00:00:00:01";
-        static readonly string printer_mac_eui48 = printer_mac.Replace(':', '-').ToUpper();
 
         const byte SOH = 0x01, STX = 0x02, ETX = 0x03, ENQ = 0x05, ESC = 0x1b;
         const byte ASCII_A = 0x41, ASCII_L = 0x4c, ASCII_Z = 0x5a;
 
-        static readonly byte[] SearchResponseBody = File.ReadAllBytes("search-response.bin");
         static readonly byte[] HealthOKBody = File.ReadAllBytes("health-ok.bin");
 
-        static readonly IPEndPoint searchEP = new IPEndPoint(IPAddress.Any, 19541);
         static readonly IPEndPoint printEP = new IPEndPoint(IPAddress.Any, 9100);
         static TcpListener listener;
 
@@ -77,73 +71,16 @@ namespace UnitTestProject
             }
         }
 
-        protected async static Task<byte[]> ResponseForSearch()
-        {
-            UdpReceiveResult result;
-            using (var server = new UdpClient(searchEP) { EnableBroadcast = true })
-            {
-                server.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-                result = await server.ReceiveAsync();
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(10));
-
-            using (var client = new UdpClient() { EnableBroadcast = true })
-            {
-                client.Connect(new IPEndPoint(IPAddress.Broadcast, result.RemoteEndPoint.Port));
-                await client.SendAsync(SearchResponseBody, SearchResponseBody.Length);
-            }
-
-            return result.Buffer;
-        }
-
-        [TestMethod]
-        public async Task SearchPrinter()
-        {
-            var task = ResponseForSearch();
-            var wait_time = TimeSpan.FromMilliseconds(500);
-
-            Response response = null;
-            using (task)
-            {
-                var mac = PhysicalAddress.Parse(printer_mac_eui48);
-                Printer.ClearSearchCache();
-                var responses = Printer.Search(wait_time).Where(r => r.MACAddress.Equals(mac));
-                Assert.IsInstanceOfType(responses, typeof(IEnumerable<Response>));
-                CollectionAssert.AreEqual(new byte[] { SOH, ASCII_L, ASCII_A }, await task);
-                Assert.AreEqual(1, responses.Count());
-                response = responses.First();
-            }
-
-            Assert.AreEqual(IPAddress.Parse("127.0.0.1"), response.IPAddress);
-            Assert.AreEqual(IPAddress.Parse("255.0.0.0"), response.SubnetMask);
-            Assert.AreEqual(IPAddress.Parse("0.0.0.0"), response.Gateway);
-            Assert.AreEqual("Lesprit Series", response.Name);
-            Assert.IsTrue(response.DHCP);
-            Assert.IsTrue(response.RARP);
-        }
-
-        [TestMethod]
-        [ExpectedException(typeof(TinySatoException))]
-        public void BusyPrinter()
-        {
-            listener.Stop();
-            var task = ResponseForSearch();
-            Printer.ClearSearchCache();
-            using (task)
-            using (var printer = Printer.Find(printer_mac)) { }
         }
 
         [TestMethod]
         public async Task MultiLabel()
         {
-            var task = ResponseForSearch();
-            var task2 = ResponseForPrint();
+            var task = ResponseForPrint();
 
-            Printer.ClearSearchCache();
-
-            using (task)
-            using (var printer = Printer.Find(printer_mac))
+            using (var printer = new Printer(printEP))
             {
                 // page 1
                 printer.Barcode.AddCODE128(1, 2, "HELLO");
@@ -183,10 +120,10 @@ namespace UnitTestProject
             }.SelectMany(x => (new byte[] { ESC }).Concat(Encoding.ASCII.GetBytes(x)))
             .Prepend(STX).Append(ETX);
 
-            using (task2)
+            using (task)
             {
-                var actual = await task2;
                 CollectionAssert.AreEqual(expected.ToArray(), actual);
+                var actual = await task;
             }
         }
 
@@ -194,12 +131,9 @@ namespace UnitTestProject
         public async Task ExampleBarcode()
         {
             var barcode = "1234567890128";
-            var task = ResponseForSearch();
-            var task2 = ResponseForPrint();
-            Printer.ClearSearchCache();
+            var task = ResponseForPrint();
 
-            using (task)
-            using (var printer = Printer.Find(printer_mac))
+            using (var printer = new Printer(printEP))
             {
                 Assert.IsInstanceOfType(printer, typeof(Printer));
                 Assert.AreEqual(ConnectionType.IP, printer.ConnectionType);
@@ -260,22 +194,19 @@ namespace UnitTestProject
             }.SelectMany(x => (new byte[] { ESC }).Concat(Encoding.ASCII.GetBytes(x)))
             .Prepend(STX).Append(ETX);
 
-            using (task2)
+            using (task)
             {
-                var actual = await task2;
                 CollectionAssert.AreEqual(expected.ToArray(), actual);
+                var actual = await task;
             }
         }
 
         [TestMethod]
         public async Task ExampleGraphic()
         {
-            var task = ResponseForSearch();
-            var task2 = ResponseForPrint();
-            Printer.ClearSearchCache();
+            var task = ResponseForPrint();
 
-            using (task)
-            using (var printer = Printer.Find(printer_mac))
+            using (var printer = new Printer(printEP))
             {
                 int width = (int)Math.Round(85.0 * mm2dot),
                     height = (int)Math.Round(50.0 * mm2dot);
@@ -331,10 +262,10 @@ namespace UnitTestProject
             .Concat(new byte[] { ESC, ASCII_Z })
             .Prepend(STX).Append(ETX);
 
-            using (task2)
+            using (task)
             {
-                var actual = await task2;
                 CollectionAssert.AreEqual(expected.ToArray(), actual);
+                var actual = await task;
             }
         }
     }

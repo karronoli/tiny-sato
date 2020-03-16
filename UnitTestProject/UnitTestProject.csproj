@@ -45,6 +45,7 @@
     <Reference Include="System.Printing" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="PrinterSearchTest.cs" />
     <Compile Include="UnitTest1.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -67,9 +68,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="health-ok.bin">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="search-response.bin">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
