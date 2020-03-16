@@ -45,6 +45,7 @@
     <Reference Include="System.Printing" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="JobStatusTest.cs" />
     <Compile Include="PrinterSearchTest.cs" />
     <Compile Include="UnitTest1.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
