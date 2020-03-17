@@ -269,7 +269,7 @@
             {
                 this.status = status.Refresh();
                 if (!status.OK)
-                    throw new TinySatoException($"Printer is failure. {status}");
+                    throw new TinySatoPrinterUnitException($"Printer is failure. {status}");
                 client.Client.Send(raw);
             }
             catch (SocketException e)

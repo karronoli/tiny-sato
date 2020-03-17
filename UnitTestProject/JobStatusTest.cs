@@ -228,7 +228,7 @@
         }
 
         [TestMethod]
-        [ExpectedException(typeof(TinySatoException))]
+        [ExpectedException(typeof(TinySatoPrinterUnitException))]
         public void HealthErrorHead()
         {
             _ = ResponseForPrint(new List<byte[]> { HealthErrorHeadBody });
@@ -262,7 +262,7 @@
         }
 
         [TestMethod]
-        [ExpectedException(typeof(TinySatoException))]
+        [ExpectedException(typeof(TinySatoPrinterUnitException))]
         public void PaperError()
         {
             _ = ResponseForPrint(new List<byte[]> { HealthErrorPaperBody, HealthOKBody, HealthOKBody });
@@ -271,7 +271,7 @@
         }
 
         [TestMethod]
-        [ExpectedException(typeof(TinySatoException))]
+        [ExpectedException(typeof(TinySatoPrinterUnitException))]
         public void NoWaitAtMultiLabel()
         {
             _ = ResponseForPrint(new List<byte[]> { HealthOKBody, HealthOKBody, HealthOnlinePrintingBufferNearFullBody });

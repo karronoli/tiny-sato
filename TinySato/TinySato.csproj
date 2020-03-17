@@ -59,6 +59,7 @@
     <Compile Include="TinySatoException.cs" />
     <Compile Include="TinySatoIOException.cs" />
     <Compile Include="TinySatoPrinterNotFoundException.cs" />
+    <Compile Include="TinySatoPrinterUnitExpception.cs" />
     <Compile Include="UnsafeNativeMethods.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

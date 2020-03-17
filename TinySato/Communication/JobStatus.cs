@@ -69,7 +69,7 @@
             Name = response.Name;
 
             if (Health.Error != Error.None)
-                throw new TinySatoException($"Printer failure. error: {Enum.GetName(typeof(Error), Health.Error)}");
+                throw new TinySatoPrinterUnitException($"Printer failure. error: {Enum.GetName(typeof(Error), Health.Error)}");
         }
 
         public bool OK
