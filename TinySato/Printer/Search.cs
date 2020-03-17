@@ -63,7 +63,7 @@
         {
             if (!MACAddress.TryParse(mac_address, out PhysicalAddress mac))
             {
-                throw new TinySatoException($"Bad physical address. address: {mac_address}");
+                throw new TinySatoArgumentException($"Bad physical address. address: {mac_address}");
             }
 
             return Find(mac, SearchWaitTimeout);

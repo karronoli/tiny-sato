@@ -26,7 +26,7 @@ namespace TinySato
                 bmp1bpp.Save(memory, ImageFormat.Bmp);
                 var bmp = memory.ToArray();
                 if (!(1 <= bmp.Length && bmp.Length <= 99999))
-                    throw new TinySatoException(
+                    throw new TinySatoArgumentException(
                         string.Format("Reduce bitmap size. current:{0}, max:99999", bmp.Length));
                 byte[] raw = Encoding.ASCII.GetBytes(
                     string.Format("{0}GM{1:D5},", Printer.ESC, bmp.Length))
@@ -39,7 +39,7 @@ namespace TinySato
         {
             if (is_strict &&
                 (original.Width % 8 != 0 || original.Height % 8 != 0))
-                throw new TinySatoException("Invalid a image size. Specify the width or height of multiples of 8.");
+                throw new TinySatoArgumentException("Invalid a image size. Specify the width or height of multiples of 8.");
             var region = new Rectangle(0, 0,
                 original.Width - (original.Width % 8),
                 original.Height - (original.Height % 8));
@@ -62,13 +62,13 @@ namespace TinySato
         public void AddBox(int horizontal_line_width, int vertical_line_width, int width, int height)
         {
             if (!(1 <= horizontal_line_width && horizontal_line_width <= 99))
-                throw new TinySatoException("Specify 1-99 dots.");
+                throw new TinySatoArgumentException("Specify 1-99 dots.");
             if (!(1 <= vertical_line_width && vertical_line_width <= 99))
-                throw new TinySatoException("Specify 1-99 dots.");
+                throw new TinySatoArgumentException("Specify 1-99 dots.");
             if (!(1 <= width && width <= 9999))
-                throw new TinySatoException("Specify 1-9999 dots.");
+                throw new TinySatoArgumentException("Specify 1-9999 dots.");
             if (!(1 <= height && height <= 9999))
-                throw new TinySatoException("Specify 1-9999 dots.");
+                throw new TinySatoArgumentException("Specify 1-9999 dots.");
             this.printer.Add(string.Format("FW{0:D2}{1:D2}V{2:D4}H{3:D4}",
                 horizontal_line_width, vertical_line_width, height, width));
         }

@@ -55,6 +55,7 @@
     <Compile Include="Printer\Search.cs" />
     <Compile Include="Search\MACAddress.cs" />
     <Compile Include="Search\Response.cs" />
+    <Compile Include="TinySatoArgumentException.cs" />
     <Compile Include="TinySatoException.cs" />
     <Compile Include="TinySatoIOException.cs" />
     <Compile Include="TinySatoPrinterNotFoundException.cs" />

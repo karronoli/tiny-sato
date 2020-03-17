@@ -161,7 +161,7 @@
         {
             var health = Definition.Where(h => h.Raw == status);
             if (health.Count() != 1)
-                throw new TinySatoException($"Printer status is unknown. status:{status}");
+                throw new TinySatoArgumentException($"Printer status is unknown. status:{status}");
             this = health.First();
         }
 

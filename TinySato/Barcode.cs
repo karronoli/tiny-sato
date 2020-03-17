@@ -26,18 +26,18 @@ namespace TinySato
         public void AddCODE128(int narrow_bar_width, int barcode_height, string print_data)
         {
             if (!(1 <= narrow_bar_width && narrow_bar_width <= 12))
-                throw new TinySatoException("Specify 1-12 dot for Narrow Bar Width.");
+                throw new TinySatoArgumentException("Specify 1-12 dot for Narrow Bar Width.");
             if (!(1 <= barcode_height && barcode_height <= 600))
-                throw new TinySatoException("Specify 1-600 dot for Barcode Height.");
+                throw new TinySatoArgumentException("Specify 1-600 dot for Barcode Height.");
             this.printer.Add(string.Format("BG{0:D2}{1:D3}{2}", narrow_bar_width, barcode_height, print_data));
         }
 
         public void AddCODE128(int narrow_bar_width, int barcode_height, string print_data, Action<Size> set_position_by_size)
         {
             if (!(1 <= narrow_bar_width && narrow_bar_width <= 12))
-                throw new TinySatoException("Specify 1-12 dot for Narrow Bar Width.");
+                throw new TinySatoArgumentException("Specify 1-12 dot for Narrow Bar Width.");
             if (!(1 <= barcode_height && barcode_height <= 600))
-                throw new TinySatoException("Specify 1-600 dot for Barcode Height.");
+                throw new TinySatoArgumentException("Specify 1-600 dot for Barcode Height.");
 
             var m = (new Regex(@"(\d{6,})$")).Match(print_data);
             var index = m.Success ?
@@ -72,13 +72,13 @@ namespace TinySato
         public void AddJAN13(int thin_bar_width, int barcode_top, string print_data)
         {
             if (!(1 <= thin_bar_width && thin_bar_width <= 12))
-                throw new TinySatoException("Specify 1-12 dot for Narrow Bar Width.");
+                throw new TinySatoArgumentException("Specify 1-12 dot for Narrow Bar Width.");
             if (!(1 <= barcode_top && barcode_top <= 600))
-                throw new TinySatoException("Specify 1-600 dot for Barcode Height.");
+                throw new TinySatoArgumentException("Specify 1-600 dot for Barcode Height.");
             if (!(11 <= print_data.Length && print_data.Length <= 13))
-                throw new TinySatoException("Correct barcode data length. valid range: 11-13");
+                throw new TinySatoArgumentException("Correct barcode data length. valid range: 11-13");
             if (!print_data.All(char.IsDigit))
-                throw new TinySatoException("Correct character type of barcode data.");
+                throw new TinySatoArgumentException("Correct character type of barcode data.");
             this.printer.Add(string.Format("BD3{0:D2}{1:D3}{2}", thin_bar_width, barcode_top, print_data));
         }
 
@@ -120,15 +120,15 @@ namespace TinySato
             char start_char, char stop_char)
         {
             if (!(1 <= thin_bar_width && thin_bar_width <= 12))
-                throw new TinySatoException("Specify 1-12 dot for Narrow Bar Width.");
+                throw new TinySatoArgumentException("Specify 1-12 dot for Narrow Bar Width.");
             if (!(1 <= bar_top_length && bar_top_length <= 600))
-                throw new TinySatoException("Specify 1-600 dot for Barcode Height.");
+                throw new TinySatoArgumentException("Specify 1-600 dot for Barcode Height.");
             if (!print_data.All(pd => CodabarDataCharacters.Contains(pd)))
-                throw new TinySatoException("Check character of barcode data.");
+                throw new TinySatoArgumentException("Check character of barcode data.");
             if (!CodabarStartStopCharacters.Contains(start_char))
-                throw new TinySatoException("Check start character.");
+                throw new TinySatoArgumentException("Check start character.");
             if (!CodabarStartStopCharacters.Contains(stop_char))
-                throw new TinySatoException("Check stop character.");
+                throw new TinySatoArgumentException("Check stop character.");
 
             const int barcode_type = 0; // 0: Codabar
             string print_data_with_control =
