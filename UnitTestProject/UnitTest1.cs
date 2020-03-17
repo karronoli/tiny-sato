@@ -15,14 +15,37 @@ namespace UnitTestProject
     [TestClass]
     public class UnitTest1
     {
+        const byte NULL = 0x0, STX = 0x02, ETX = 0x03, ENQ = 0x05, ESC = 0x1b, FS = 0x1c;
+        const byte ASCII_SPACE = 0x20, ASCII_ZERO = 0x30, ASCII_Z = 0x5a;
 
-        const byte SOH = 0x01, STX = 0x02, ETX = 0x03, ENQ = 0x05, ESC = 0x1b;
-        const byte ASCII_A = 0x41, ASCII_L = 0x4c, ASCII_Z = 0x5a;
+        // STATUS4 standard http://www.sato.co.jp/webmanual/printer/cl4nx-j_cl6nx-j/main/main_GUID-D94C3DAD-1A55-4706-A86D-71EF71C6F3E3.html#
+        static readonly byte[] HealthOKBody = new byte[]
+        {
+            NULL, NULL, NULL, FS,
+            ENQ,
+            STX,
 
-        static readonly byte[] HealthOKBody = File.ReadAllBytes("health-ok.bin");
+            // JobStatus.ID
+            ASCII_SPACE, ASCII_SPACE,
 
-        static readonly IPEndPoint printEP = new IPEndPoint(IPAddress.Any, 9100);
-        static TcpListener listener;
+            // JobStatus.Health = State.Online
+            Convert.ToByte('A'),
+
+            // JobStatus.LabelRemaining = 0
+            ASCII_ZERO, ASCII_ZERO, ASCII_ZERO,
+            ASCII_ZERO, ASCII_ZERO, ASCII_ZERO,
+
+            // JobStatus.Name
+            ASCII_SPACE, ASCII_SPACE, ASCII_SPACE, ASCII_SPACE,
+            ASCII_SPACE, ASCII_SPACE, ASCII_SPACE, ASCII_SPACE,
+            ASCII_SPACE, ASCII_SPACE, ASCII_SPACE, ASCII_SPACE,
+            ASCII_SPACE, ASCII_SPACE, ASCII_SPACE, ASCII_SPACE,
+
+            ETX,
+        };
+
+        static readonly IPEndPoint printEP = new IPEndPoint(IPAddress.Loopback, 9100);
+        static readonly TcpListener listener = new TcpListener(printEP) { ExclusiveAddressUse = true };
 
         const double inch2mm = 25.4;
         const double dpi = 203;
@@ -32,7 +55,6 @@ namespace UnitTestProject
         [TestInitialize]
         public void Listen()
         {
-            listener = new TcpListener(printEP) { ExclusiveAddressUse = true };
             listener.Start(1);
         }
 
@@ -42,7 +64,7 @@ namespace UnitTestProject
             listener.Stop();
         }
 
-        protected async static Task<byte[]> ResponseForPrint()
+        async static Task<byte[]> ResponseForPrint()
         {
             var buffers = new List<byte[]>();
 
@@ -53,26 +75,23 @@ namespace UnitTestProject
                 {
                     var dummy = new byte[client.ReceiveBufferSize];
                     var actual_buffer_length = await stream.ReadAsync(dummy, 0, dummy.Length);
-                    var buffer = dummy.Take(actual_buffer_length);
+                    var buffer = dummy.Take(actual_buffer_length).ToArray();
 
-                    if (buffer.Count() == 0)
+                    if (buffer.Length == 0)
                     {
                         var last = buffers.Last();
                         if (last.Last() == ETX) break;
+                        Assert.Fail("bad request body");
                     }
 
                     if (buffer.Last() == ENQ)
                         await stream.WriteAsync(HealthOKBody, 0, HealthOKBody.Length);
 
-                    buffers.Add(buffer.ToArray());
+                    buffers.Add(buffer);
                 }
-
-                return buffers.SelectMany(buffer => buffer.Where(b => b != ENQ)).ToArray();
-            }
-        }
-
             }
 
+            return buffers.SelectMany(buffer => buffer).ToArray();
         }
 
         [TestMethod]
@@ -98,32 +117,42 @@ namespace UnitTestProject
                 printer.Send();
             }
 
-            var expected = new string[]
+            // page 1
+            var expected1 = new string[]
             {
-                // page 1
                 "A",
                 "BG" + "01" + "002" + "HELLO",
                 "Q" + "000003",
                 "Z",
+            }.SelectMany(x => (new byte[] { ESC }).Concat(Encoding.ASCII.GetBytes(x)));
 
-                // page 2
+            // page 2
+            var expected2 = new string[]
+            {
                 "A",
                 "BG" + "04" + "005" + "WORLD",
                 "Q" + "000006",
                 "Z",
+            }.SelectMany(x => (new byte[] { ESC }).Concat(Encoding.ASCII.GetBytes(x)));
 
-                // page 3
+            // page 3
+            var expected3 = new string[]
+            {
                 "A",
                 "BG" + "07" + "008" + "!!!",
                 "Q" + "000009",
                 "Z",
-            }.SelectMany(x => (new byte[] { ESC }).Concat(Encoding.ASCII.GetBytes(x)))
-            .Prepend(STX).Append(ETX);
+            }.SelectMany(x => (new byte[] { ESC }).Concat(Encoding.ASCII.GetBytes(x)));
 
+            var expected = new byte[] { ENQ, ENQ, STX }.Concat(expected1)
+                .Concat(new byte[] { ENQ }.Concat(expected2))
+                .Concat(new byte[] { ENQ }.Concat(expected3))
+                .Append(ETX)
+                .ToList();
             using (task)
             {
-                CollectionAssert.AreEqual(expected.ToArray(), actual);
                 var actual = await task;
+                CollectionAssert.AreEqual(expected, actual);
             }
         }
 
@@ -159,7 +188,7 @@ namespace UnitTestProject
                 printer.Send();
             }
 
-            IEnumerable<byte> expected = new string[]
+            var expected = (new byte[] { ENQ, ENQ, STX }).Concat(new string[]
             {
                 // settings
                 "A",
@@ -191,13 +220,13 @@ namespace UnitTestProject
                 // print
                 "Q" + "000001",
                 "Z"
-            }.SelectMany(x => (new byte[] { ESC }).Concat(Encoding.ASCII.GetBytes(x)))
-            .Prepend(STX).Append(ETX);
+            }.SelectMany(x => (new byte[] { ESC }).Concat(Encoding.ASCII.GetBytes(x))))
+            .Append(ETX).ToList();
 
             using (task)
             {
-                CollectionAssert.AreEqual(expected.ToArray(), actual);
                 var actual = await task;
+                CollectionAssert.AreEqual(expected, actual);
             }
         }
 
@@ -237,7 +266,7 @@ namespace UnitTestProject
                 printer.Send();
             }
 
-            IEnumerable<byte> expected = new string[]
+            var expected = (new byte[] { ENQ, ENQ, STX }).Concat(new string[]
             {
                 "A",
 
@@ -255,17 +284,17 @@ namespace UnitTestProject
                 "H0001",
                 "V0001",
                 string.Format("GM{0},", new FileInfo("output.bmp").Length),
-            }.SelectMany(x => (new byte[] { ESC }).Concat(Encoding.ASCII.GetBytes(x)))
+            }.SelectMany(x => (new byte[] { ESC }).Concat(Encoding.ASCII.GetBytes(x))))
             .Concat(File.ReadAllBytes("output.bmp"))
             // print
-            .Append(ESC).Concat(Encoding.ASCII.GetBytes("Q000001"))
-            .Concat(new byte[] { ESC, ASCII_Z })
-            .Prepend(STX).Append(ETX);
+            .Concat((new byte[] { ESC }).Concat(Encoding.ASCII.GetBytes("Q000001")))
+            .Concat(new byte[] { ESC, ASCII_Z, ETX })
+            .ToList();
 
             using (task)
             {
-                CollectionAssert.AreEqual(expected.ToArray(), actual);
                 var actual = await task;
+                CollectionAssert.AreEqual(expected, actual);
             }
         }
     }
