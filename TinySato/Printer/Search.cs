@@ -96,7 +96,7 @@
                 }
             }
 
-            throw new TinySatoException("Not found printer. mac: " + mac);
+            throw new TinySatoPrinterNotFoundException("Not found printer. mac: " + mac);
         }
 
         protected static int Request(int request_port = DEFAULT_SEARCH_PORT)

@@ -54,7 +54,7 @@
             this.Graphic = new Graphic(this);
 
             if (!UnsafeNativeMethods.OpenPrinter(name.Normalize(), out printer, IntPtr.Zero))
-                throw new TinySatoException("failed to use printer.",
+                throw new TinySatoPrinterNotFoundException($"The printer not found. name:{name}",
                     new Win32Exception(Marshal.GetLastWin32Error()));
             const int level = 1; // for not win98
             var di = new DOCINFO() { pDataType = "raw", pDocName = "RAW DOCUMENT" };
@@ -76,7 +76,7 @@
             }
             catch (SocketException e)
             {
-                throw new TinySatoException($"The printer is maybe none in the same network. endpoint: {endpoint}", e);
+                throw new TinySatoPrinterNotFoundException($"The printer is maybe none in the same network. endpoint: {endpoint}", e);
             }
 
             this.status = new JobStatus(client.GetStream());
