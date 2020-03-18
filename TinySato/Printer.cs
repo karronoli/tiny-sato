@@ -131,6 +131,7 @@
         public int Send(uint number_of_pages)
         {
             this.SetPageNumber(number_of_pages);
+
             return Send();
         }
 

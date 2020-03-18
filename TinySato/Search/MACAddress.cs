@@ -13,7 +13,8 @@
             {
                 var eui48address = mac_address.Replace(':', '-').ToUpper();
                 mac = PhysicalAddress.Parse(eui48address);
-                if (PhysicalAddress.None.Equals(mac)) return false;
+                if (PhysicalAddress.None.Equals(mac))
+                    return false;
             }
             catch (FormatException)
             {

@@ -48,6 +48,7 @@
             try
             {
                 response = new Response(raw);
+
                 return true;
             }
             catch (ArgumentOutOfRangeException)

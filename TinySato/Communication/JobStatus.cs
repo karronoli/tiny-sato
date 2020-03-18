@@ -96,6 +96,7 @@
             message += $", {nameof(Health.Battery)}: {Enum.GetName(typeof(Battery), Health.Battery)}";
             message += $", {nameof(Health.Buffer)}: {Enum.GetName(typeof(Buffer), Health.Buffer)}";
             message += $", {nameof(Health.Error)}: {Enum.GetName(typeof(Error), Health.Error)}";
+
             return message;
         }
     }
