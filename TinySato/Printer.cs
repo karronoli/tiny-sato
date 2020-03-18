@@ -158,9 +158,17 @@
 
         void Send(byte[] raw)
         {
-            if (printer != IntPtr.Zero) SendWin32(raw);
-            else if (client != null) SendTcp(raw);
-            else throw new NotImplementedException();
+            switch (ConnectionType)
+            {
+                case ConnectionType.Driver:
+                    SendWin32(raw);
+                    break;
+                case ConnectionType.IP:
+                    SendTcp(raw);
+                    break;
+                default:
+                    throw new NotImplementedException();
+            }
         }
 
         void SendWin32(byte[] raw)
