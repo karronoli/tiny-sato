@@ -10,7 +10,7 @@
         public void SetDensity(int density, DensitySpec spec)
         {
             if (!(1 <= density && density <= 5))
-                throw new TinySatoException("Specify 1-5 density");
+                throw new TinySatoArgumentException("Specify 1-5 density");
             Insert(operation_start_index + 0, OPERATION_A);
             Insert(operation_start_index + 1, ESC + string.Format("#E{0:D1}{1}", density, spec.ToString("F")));
             Insert(operation_start_index + 2, OPERATION_Z);

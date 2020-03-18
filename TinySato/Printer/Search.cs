@@ -63,7 +63,7 @@
         {
             if (!MACAddress.TryParse(mac_address, out PhysicalAddress mac))
             {
-                throw new TinySatoException($"Bad physical address. address: {mac_address}");
+                throw new TinySatoArgumentException($"Bad physical address. address: {mac_address}");
             }
 
             return Find(mac, SearchWaitTimeout);
@@ -96,7 +96,7 @@
                 }
             }
 
-            throw new TinySatoException("Not found printer. mac: " + mac);
+            throw new TinySatoPrinterNotFoundException("Not found printer. mac: " + mac);
         }
 
         protected static int Request(int request_port = DEFAULT_SEARCH_PORT)

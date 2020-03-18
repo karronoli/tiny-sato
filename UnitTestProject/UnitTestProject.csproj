@@ -45,6 +45,8 @@
     <Reference Include="System.Printing" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="JobStatusTest.cs" />
+    <Compile Include="PrinterSearchTest.cs" />
     <Compile Include="UnitTest1.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -64,14 +66,6 @@
       <Project>{f56213db-fa1f-42da-b930-b642a56ee840}</Project>
       <Name>TinySato</Name>
     </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="health-ok.bin">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="search-response.bin">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
   </ItemGroup>
   <Import Project="$(VSToolsPath)\TeamTest\Microsoft.TestTools.targets" Condition="Exists('$(VSToolsPath)\TeamTest\Microsoft.TestTools.targets')" />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

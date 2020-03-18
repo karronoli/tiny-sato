@@ -50,7 +50,7 @@
             }
             catch (IOException e)
             {
-                throw new TinySatoException("The printer is not respond.", e);
+                throw new TinySatoIOException("The printer is not respond.", e);
             }
             finally
             {
@@ -69,7 +69,7 @@
             Name = response.Name;
 
             if (Health.Error != Error.None)
-                throw new TinySatoException($"Printer failure. error: {Enum.GetName(typeof(Error), Health.Error)}");
+                throw new TinySatoPrinterUnitException($"Printer failure. error: {Enum.GetName(typeof(Error), Health.Error)}");
         }
 
         public bool OK
@@ -161,7 +161,7 @@
         {
             var health = Definition.Where(h => h.Raw == status);
             if (health.Count() != 1)
-                throw new TinySatoException($"Printer status is unknown. status:{status}");
+                throw new TinySatoArgumentException($"Printer status is unknown. status:{status}");
             this = health.First();
         }
 

@@ -54,12 +54,13 @@
             this.Graphic = new Graphic(this);
 
             if (!UnsafeNativeMethods.OpenPrinter(name.Normalize(), out printer, IntPtr.Zero))
-                throw new TinySatoException("failed to use printer.",
+                throw new TinySatoPrinterNotFoundException($"The printer not found. name:{name}",
                     new Win32Exception(Marshal.GetLastWin32Error()));
             const int level = 1; // for not win98
             var di = new DOCINFO() { pDataType = "raw", pDocName = "RAW DOCUMENT" };
             if (!UnsafeNativeMethods.StartDocPrinter(printer, level, di))
-                throw new Win32Exception(Marshal.GetLastWin32Error());
+                throw new TinySatoIOException($"Failed to use printer. name:{name}",
+                    new Win32Exception(Marshal.GetLastWin32Error()));
         }
 
         public Printer(IPEndPoint endpoint)
@@ -75,7 +76,7 @@
             }
             catch (SocketException e)
             {
-                throw new TinySatoException($"The printer is maybe none in the same network. endpoint: {endpoint}", e);
+                throw new TinySatoPrinterNotFoundException($"The printer is maybe none in the same network. endpoint: {endpoint}", e);
             }
 
             this.status = new JobStatus(client.GetStream());
@@ -89,7 +90,7 @@
                     if (status.OK) break;
                 }
                 if (!status.OK)
-                    throw new TinySatoException($"Printer is busy. endpoint: {endpoint}, status: {status}");
+                    throw new TinySatoIOException($"Printer is busy. endpoint: {endpoint}, status: {status}");
             }
         }
 
@@ -97,7 +98,7 @@
         {
             var _x = x + soft_offset_x;
             if (!(1 <= _x && _x <= 9999))
-                throw new TinySatoException("Specify 1-9999 dots.");
+                throw new TinySatoArgumentException("Specify 1-9999 dots.");
             Add(string.Format("H{0:D4}", _x));
         }
 
@@ -105,14 +106,14 @@
         {
             var _y = y + soft_offset_y;
             if (!(1 <= _y && _y <= 9999))
-                throw new TinySatoException("Specify 1-9999 dots.");
+                throw new TinySatoArgumentException("Specify 1-9999 dots.");
             Add(string.Format("V{0:D4}", _y));
         }
 
         public void SetGapSizeBetweenLabels(int y)
         {
             if (!(0 <= y && y <= 64))
-                throw new TinySatoException("Specify 0-64 dots.");
+                throw new TinySatoArgumentException("Specify 0-64 dots.");
             Insert(operation_start_index + 0, OPERATION_A);
             Insert(operation_start_index + 1, ESC + string.Format("TG{0:D2}", y));
             Insert(operation_start_index + 2, OPERATION_Z);
@@ -122,7 +123,7 @@
         public void SetSpeed(int speed)
         {
             if (!(1 <= speed && speed <= 5))
-                throw new TinySatoException("Specify 1-5 speed");
+                throw new TinySatoArgumentException("Specify 1-5 speed");
             Insert(operation_start_index + 0, OPERATION_A);
             Insert(operation_start_index + 1, ESC + string.Format("CS{0:D2}", speed));
             Insert(operation_start_index + 2, OPERATION_Z);
@@ -132,18 +133,18 @@
         public void SetStartPosition(int x, int y)
         {
             if (!(Math.Abs(x) <= 999))
-                throw new TinySatoException("Specify -999 <= x <= 999 dots.");
+                throw new TinySatoArgumentException("Specify -999 <= x <= 999 dots.");
             if (!(Math.Abs(y) <= 999))
-                throw new TinySatoException("Specify -999 <= y <= 999 dots.");
+                throw new TinySatoArgumentException("Specify -999 <= y <= 999 dots.");
             Add(string.Format("A3V{0:+000;-000}H{1:+000;-000}", y, x));
         }
 
         public void SetStartPositionEx(int x, int y)
         {
             if (!(Math.Abs(x) <= 9999))
-                throw new TinySatoException("Specify -9999 <= x <= 9999 dots.");
+                throw new TinySatoArgumentException("Specify -9999 <= x <= 9999 dots.");
             if (!(Math.Abs(y) <= 9999))
-                throw new TinySatoException("Specify -9999 <= y <= 9999 dots.");
+                throw new TinySatoArgumentException("Specify -9999 <= y <= 9999 dots.");
             soft_offset_x = x;
             soft_offset_y = y;
         }
@@ -151,9 +152,9 @@
         public void SetPaperSize(int height, int width)
         {
             if (!(1 <= height && height <= 9999))
-                throw new TinySatoException("Specify 1-9999 dots for height.");
+                throw new TinySatoArgumentException("Specify 1-9999 dots for height.");
             if (!(1 <= width && width <= 9999))
-                throw new TinySatoException("Specify 1-9999 dots for width.");
+                throw new TinySatoArgumentException("Specify 1-9999 dots for width.");
             Insert(operation_start_index + 0, OPERATION_A);
             Insert(operation_start_index + 1, ESC + string.Format("A1{0:D4}{1:D4}", height, width));
             Insert(operation_start_index + 2, OPERATION_Z);
@@ -169,7 +170,7 @@
         public void SetPageNumber(uint number_of_pages)
         {
             if (!(1 <= number_of_pages && number_of_pages <= 999999))
-                throw new TinySatoException("Specify 1-999999 pages.");
+                throw new TinySatoArgumentException("Specify 1-999999 pages.");
             Add(string.Format("Q{0:D6}", number_of_pages));
         }
 
@@ -254,7 +255,7 @@
             }
             catch (Win32Exception e)
             {
-                throw new TinySatoException("failed to send operations for windows printer.", e);
+                throw new TinySatoIOException("failed to send operations for windows printer.", e);
             }
             finally
             {
@@ -268,12 +269,12 @@
             {
                 this.status = status.Refresh();
                 if (!status.OK)
-                    throw new TinySatoException($"Printer is failure. {status}");
+                    throw new TinySatoPrinterUnitException($"Printer is failure. {status}");
                 client.Client.Send(raw);
             }
             catch (SocketException e)
             {
-                throw new TinySatoException("failed to send operations by tcp.", e);
+                throw new TinySatoIOException("failed to send operations by tcp.", e);
             }
         }
 
@@ -287,13 +288,13 @@
             {
                 var code = Marshal.GetLastWin32Error();
                 var inner = new Win32Exception(code);
-                throw new TinySatoException("failed to end document.", inner);
+                throw new TinySatoIOException("failed to end document.", inner);
             }
             if (printer != IntPtr.Zero && !UnsafeNativeMethods.ClosePrinter(printer))
             {
                 var code = Marshal.GetLastWin32Error();
                 var inner = new Win32Exception(code);
-                throw new TinySatoException("failed to close printer.", inner);
+                throw new TinySatoIOException("failed to close printer.", inner);
             }
             printer = IntPtr.Zero;
         }
