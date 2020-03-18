@@ -1,10 +1,12 @@
 ﻿namespace TinySato.Search
 {
     using System;
+    using System.Diagnostics.CodeAnalysis;
     using System.Net.NetworkInformation;
 
     public static class MACAddress
     {
+        [SuppressMessage("Style", "CA1031")]
         public static bool TryParse(string mac_address, out PhysicalAddress mac)
         {
             mac = PhysicalAddress.None;

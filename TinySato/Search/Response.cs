@@ -1,6 +1,7 @@
 ﻿namespace TinySato.Search
 {
     using System;
+    using System.Diagnostics.CodeAnalysis;
     using System.Net;
     using System.Net.NetworkInformation;
     using System.Runtime.InteropServices;
@@ -43,6 +44,7 @@
             RARP = response.RARP;
         }
 
+        [SuppressMessage("Style", "CA1031")]
         public static bool TryParse(byte[] raw, ref Response response)
         {
             try
