@@ -19,7 +19,7 @@
         const int DEFAULT_SEARCH_PORT = 19541;
         const int DEFAULT_PRINT_PORT = 9100;
 
-        private static Dictionary<PhysicalAddress, IPAddress> cache
+        static readonly Dictionary<PhysicalAddress, IPAddress> cache
             = new Dictionary<PhysicalAddress, IPAddress>();
 
         public static void ClearSearchCache()

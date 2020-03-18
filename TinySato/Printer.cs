@@ -19,8 +19,9 @@
         private IntPtr printer = IntPtr.Zero;
 
         static readonly TimeSpan ConnectWaitTimeout = TimeSpan.FromSeconds(3);
+        static readonly TimeSpan ConnectWaitInterval = TimeSpan.FromMilliseconds(100);
         static readonly TimeSpan PrintSendTimeout = TimeSpan.FromMilliseconds(200); // CT408i driver default setting
-        private TcpClient client;
+        readonly TcpClient client;
 
         protected int operation_start_index = 1;
         protected List<byte[]> operations = new List<byte[]> {
@@ -38,7 +39,7 @@
             ASCII_ETX = Convert.ToByte(ETX),
             ASCII_ENQ = Convert.ToByte(ENQ), ASCII_ESC = Convert.ToByte(ESC);
 
-        protected readonly string
+        static readonly string
             OPERATION_A = ESC + "A",
             OPERATION_Z = ESC + "Z";
 
@@ -87,7 +88,7 @@
                 var timer = Stopwatch.StartNew();
                 while (ConnectWaitTimeout > timer.Elapsed)
                 {
-                    Task.Delay(TimeSpan.FromMilliseconds(100)).Wait();
+                    Task.Delay(ConnectWaitInterval).Wait();
                     this.status = status.Refresh();
                     if (status.OK) break;
                 }
