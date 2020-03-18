@@ -44,8 +44,13 @@
 
         protected JobStatus status;
 
-        public Printer(string name)
+        public Printer(string name, string DocName = "RAW DOCUMENT")
         {
+            if (string.IsNullOrEmpty(DocName))
+            {
+                throw new TinySatoArgumentException($"The document name is empty. name:{name}, DocName:{DocName}");
+            }
+
             this.ConnectionType = ConnectionType.Driver;
             this.Barcode = new Barcode(this);
             this.Graphic = new Graphic(this);
@@ -54,7 +59,7 @@
                 throw new TinySatoPrinterNotFoundException($"The printer not found. name:{name}",
                     new Win32Exception(Marshal.GetLastWin32Error()));
             const int level = 1; // for not win98
-            var di = new DOCINFO() { pDataType = "raw", pDocName = "RAW DOCUMENT" };
+            var di = new DOCINFO() { pDataType = "raw", pDocName = DocName };
             if (!UnsafeNativeMethods.StartDocPrinter(printer, level, di))
                 throw new TinySatoIOException($"Failed to use printer. name:{name}",
                     new Win32Exception(Marshal.GetLastWin32Error()));
