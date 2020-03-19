@@ -17,10 +17,10 @@
         private bool disposed = false;
 
         private IntPtr printer = IntPtr.Zero;
+        readonly TcpClient client;
 
         static readonly TimeSpan ConnectWaitTimeout = TimeSpan.FromSeconds(30);
         static readonly TimeSpan ConnectWaitInterval = TimeSpan.FromMilliseconds(100);
-        readonly TcpClient client;
         static readonly TimeSpan PrintSendInterval = TimeSpan.FromMilliseconds(200); // CT408i driver default setting
 
         protected int operation_start_index = 1;
@@ -240,7 +240,7 @@
             }
             catch (Win32Exception e)
             {
-                throw new TinySatoIOException("failed to send operations for windows printer.", e);
+                throw new TinySatoIOException($"Failed to send operations for windows printer. ErrorCode: {e.ErrorCode}", e);
             }
             finally
             {
@@ -256,7 +256,7 @@
             }
             catch (SocketException e)
             {
-                throw new TinySatoIOException("failed to send operations by tcp.", e);
+                throw new TinySatoIOException($"Failed to send operations. endpoint: {client.Client.RemoteEndPoint}, ErrorCode: {e.ErrorCode}", e);
             }
         }
 

@@ -143,12 +143,11 @@
         };
 
         static readonly IPEndPoint printEP = new IPEndPoint(IPAddress.Loopback, 9100);
-        static TcpListener listener;
+        static readonly TcpListener listener = new TcpListener(printEP) { ExclusiveAddressUse = true };
 
         [TestInitialize]
         public void Listen()
         {
-            listener = new TcpListener(printEP) { ExclusiveAddressUse = true };
             listener.Start(1);
         }
 
@@ -172,12 +171,7 @@
                     var actual_buffer_length = await stream.ReadAsync(dummy, 0, dummy.Length);
                     var buffer = dummy.Take(actual_buffer_length).ToArray();
 
-                    if (buffer.Length == 0)
-                    {
-                        var last = buffers.Last();
-                        if (last.Last() == ETX) break;
-                        Assert.Fail("bad request body");
-                    }
+                    if (buffer.Length == 0) break;
 
                     if (buffer.Last() == ENQ)
                     {

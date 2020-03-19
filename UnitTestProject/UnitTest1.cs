@@ -77,12 +77,7 @@ namespace UnitTestProject
                     var actual_buffer_length = await stream.ReadAsync(dummy, 0, dummy.Length);
                     var buffer = dummy.Take(actual_buffer_length).ToArray();
 
-                    if (buffer.Length == 0)
-                    {
-                        var last = buffers.Last();
-                        if (last.Last() == ETX) break;
-                        Assert.Fail("bad request body");
-                    }
+                    if (buffer.Length == 0) break;
 
                     if (buffer.Last() == ENQ)
                         await stream.WriteAsync(HealthOKBody, 0, HealthOKBody.Length);
