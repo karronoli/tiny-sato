@@ -18,9 +18,10 @@
 
         private IntPtr printer = IntPtr.Zero;
 
-        static readonly TimeSpan ConnectWaitTimeout = TimeSpan.FromSeconds(3);
+        static readonly TimeSpan ConnectWaitTimeout = TimeSpan.FromSeconds(30);
         static readonly TimeSpan ConnectWaitInterval = TimeSpan.FromMilliseconds(100);
         readonly TcpClient client;
+        static readonly TimeSpan PrintSendInterval = TimeSpan.FromMilliseconds(200); // CT408i driver default setting
 
         protected int operation_start_index = 1;
         protected List<byte[]> operations = new List<byte[]> {
@@ -73,29 +74,32 @@
             this.Barcode = new Barcode(this);
             this.Graphic = new Graphic(this);
 
-            this.client = new TcpClient() { SendTimeout = PrintSendTimeout.Milliseconds };
-            try
+            this.client = new TcpClient() { SendTimeout = (int)PrintSendInterval.TotalMilliseconds };
+            var timer = Stopwatch.StartNew();
+            using (var task = this.client.ConnectAsync(endpoint.Address, endpoint.Port))
             {
-                this.client.Connect(endpoint);
-            }
-            catch (SocketException e)
-            {
-                throw new TinySatoPrinterNotFoundException($"The printer is maybe none in the same network. endpoint: {endpoint}", e);
-            }
+                try
+                {
+                    if (!task.Wait(ConnectWaitTimeout))
+                    {
+                        throw new TinySatoIOException($"The printer is maybe none in the same network. endpoint: {endpoint}");
+                    }
+                }
+                catch (AggregateException e)
+                {
+                    throw new TinySatoPrinterNotFoundException($"The printer is bad network status. endpoint: {endpoint}", e.InnerException);
+                }
 
-            this.status = new JobStatus(client.GetStream());
-            if (!status.OK)
-            {
-                var timer = Stopwatch.StartNew();
-                while (ConnectWaitTimeout > timer.Elapsed)
+                this.status = new JobStatus(this.client.GetStream());
+                while (!this.status.OK && ConnectWaitTimeout > timer.Elapsed)
                 {
                     Task.Delay(ConnectWaitInterval).Wait();
-                    this.status = status.Refresh();
-                    if (status.OK) break;
+                    this.status = this.status.Refresh();
                 }
-                if (!status.OK)
-                    throw new TinySatoIOException($"Printer is busy. endpoint: {endpoint}, status: {status}");
             }
+
+            if (!this.status.OK)
+                throw new TinySatoIOException($"Printer is busy. endpoint: {endpoint}, status: {this.status}");
         }
 
         public void Add(string operation)
