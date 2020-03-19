@@ -68,8 +68,22 @@
             LabelRemaining = int.Parse(response.LabelRemaining);
             Name = response.Name;
 
-            if (Health.Error != Error.None)
-                throw new TinySatoPrinterUnitException($"Printer failure. error: {Enum.GetName(typeof(Error), Health.Error)}");
+            switch (Health.Error)
+            {
+                case Error.None:
+                // recoverable errors
+                case Error.CoverOpen:
+                case Error.Paper:
+                    break;
+
+                case Error.Head:
+                case Error.Sensor:
+                case Error.Buffer:
+                case Error.Battery:
+                case Error.Other:
+                default:
+                    throw new TinySatoPrinterUnitException($"Printer Unit failure. error: {Enum.GetName(typeof(Error), Health.Error)}");
+            }
         }
 
         public bool OK
