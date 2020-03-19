@@ -23,6 +23,19 @@
         // Don't dispose for persistent connection to printer
         protected Stream stream;
 
+        internal JobStatus(ConnectionType type)
+        {
+            if (type != ConnectionType.Driver)
+            {
+                throw new TinySatoArgumentException($"For Driver use only. Use another constructor. type:{type}");
+            }
+
+            ID = string.Empty;
+            Health = new Health('A');
+            LabelRemaining = 0;
+            Name = string.Empty;
+        }
+
         public JobStatus(Stream stream)
         {
             this.stream = stream;

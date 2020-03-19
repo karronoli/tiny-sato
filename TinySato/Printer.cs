@@ -64,6 +64,8 @@
             if (!UnsafeNativeMethods.StartDocPrinter(printer, level, di))
                 throw new TinySatoIOException($"Failed to use printer. name:{name}",
                     new Win32Exception(Marshal.GetLastWin32Error()));
+
+            this.status = new JobStatus(ConnectionType.Driver);
         }
 
         public Printer(IPEndPoint endpoint)
