@@ -20,7 +20,6 @@
 
         static readonly TimeSpan ConnectWaitTimeout = TimeSpan.FromSeconds(3);
         static readonly TimeSpan ConnectWaitInterval = TimeSpan.FromMilliseconds(100);
-        static readonly TimeSpan PrintSendTimeout = TimeSpan.FromMilliseconds(200); // CT408i driver default setting
         readonly TcpClient client;
 
         protected int operation_start_index = 1;
@@ -136,14 +135,36 @@
             return flatten.Length;
         }
 
-        public int Send(uint number_of_pages)
+        public int Send(TimeSpan PrintSendTimeout)
         {
-            this.SetPageNumber(number_of_pages);
+            if (!(PrintSendTimeout.TotalSeconds > 0))
+            {
+                throw new TinySatoArgumentException($"Specify valid timeout (> 0). seconds: {PrintSendTimeout.TotalSeconds}");
+            }
 
-            return Send();
+            var sent1 = this.AddStreamInternal();
+            if (ConnectionType == ConnectionType.Driver) return sent1;
+
+            var timer = Stopwatch.StartNew();
+            this.status = new JobStatus(this.client.GetStream());
+            while (!this.status.OK && PrintSendTimeout > timer.Elapsed)
+            {
+                Task.Delay(PrintSendInterval).Wait();
+                this.status = this.status.Refresh();
+            }
+
+            var sent2 = this.SendInternal();
+
+            if (!this.status.OK)
+                throw new TinySatoIOException($"Printer is busy. endpoint: {client.Client.RemoteEndPoint}, status: {status}");
+
+            return sent1 + sent2;
         }
 
-        public int Send()
+
+        public int Send() => SendInternal();
+
+        int SendInternal()
         {
             operations.Insert(operation_start_index,
                 Encoding.ASCII.GetBytes(OPERATION_A));
@@ -201,9 +222,6 @@
         {
             try
             {
-                this.status = status.Refresh();
-                if (!status.OK)
-                    throw new TinySatoPrinterUnitException($"Printer is failure. {status}");
                 client.Client.Send(raw);
             }
             catch (SocketException e)
