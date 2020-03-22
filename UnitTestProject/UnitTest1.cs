@@ -77,12 +77,7 @@ namespace UnitTestProject
                     var actual_buffer_length = await stream.ReadAsync(dummy, 0, dummy.Length);
                     var buffer = dummy.Take(actual_buffer_length).ToArray();
 
-                    if (buffer.Length == 0)
-                    {
-                        var last = buffers.Last();
-                        if (last.Last() == ETX) break;
-                        Assert.Fail("bad request body");
-                    }
+                    if (buffer.Length == 0) break;
 
                     if (buffer.Last() == ENQ)
                         await stream.WriteAsync(HealthOKBody, 0, HealthOKBody.Length);
@@ -98,23 +93,24 @@ namespace UnitTestProject
         public async Task MultiLabel()
         {
             var task = ResponseForPrint();
+            int sent1 = 0, sent2 = 0, sent3 = 0;
 
             using (var printer = new Printer(printEP))
             {
                 // page 1
                 printer.Barcode.AddCODE128(1, 2, "HELLO");
                 printer.SetPageNumber(3);
-                printer.AddStream();
+                sent1 = printer.AddStream();
 
                 // page 2
                 printer.Barcode.AddCODE128(4, 5, "WORLD");
                 printer.SetPageNumber(6);
-                printer.AddStream();
+                sent2 = printer.AddStream();
 
                 // page 3
                 printer.Barcode.AddCODE128(7, 8, "!!!");
                 printer.SetPageNumber(9);
-                printer.Send();
+                sent3 = printer.Send();
             }
 
             // page 1
@@ -144,13 +140,15 @@ namespace UnitTestProject
                 "Z",
             }.SelectMany(x => (new byte[] { ESC }).Concat(Encoding.ASCII.GetBytes(x)));
 
-            var expected = new byte[] { ENQ, ENQ, STX }.Concat(expected1)
-                .Concat(new byte[] { ENQ }.Concat(expected2))
-                .Concat(new byte[] { ENQ }.Concat(expected3))
+            var expected = new byte[] { ENQ, STX }.Concat(expected1)
+                .Concat(expected2)
+                .Concat(expected3)
                 .Append(ETX)
                 .ToList();
             using (task)
             {
+                Assert.AreEqual(expected.Count, sent1 + sent2 + sent3 + 1 /* ENQ count */);
+
                 var actual = await task;
                 CollectionAssert.AreEqual(expected, actual);
             }
@@ -161,6 +159,7 @@ namespace UnitTestProject
         {
             var barcode = "1234567890128";
             var task = ResponseForPrint();
+            int sent = 0;
 
             using (var printer = new Printer(printEP))
             {
@@ -185,10 +184,10 @@ namespace UnitTestProject
 
                 // print
                 printer.SetPageNumber(1);
-                printer.Send();
+                sent = printer.Send();
             }
 
-            var expected = (new byte[] { ENQ, ENQ, STX }).Concat(new string[]
+            var expected = (new byte[] { ENQ, STX }).Concat(new string[]
             {
                 // settings
                 "A",
@@ -225,6 +224,8 @@ namespace UnitTestProject
 
             using (task)
             {
+                Assert.AreEqual(expected.Count, sent + 1 /* ENQ count */);
+
                 var actual = await task;
                 CollectionAssert.AreEqual(expected, actual);
             }
@@ -234,6 +235,7 @@ namespace UnitTestProject
         public async Task ExampleGraphic()
         {
             var task = ResponseForPrint();
+            int sent = 0;
 
             using (var printer = new Printer(printEP))
             {
@@ -263,10 +265,10 @@ namespace UnitTestProject
                 }
                 // print
                 printer.SetPageNumber(1);
-                printer.Send();
+                sent = printer.Send();
             }
 
-            var expected = (new byte[] { ENQ, ENQ, STX }).Concat(new string[]
+            var expected = (new byte[] { ENQ, STX }).Concat(new string[]
             {
                 "A",
 
@@ -293,6 +295,8 @@ namespace UnitTestProject
 
             using (task)
             {
+                Assert.AreEqual(expected.Count, sent + 1 /* ENQ count */);
+
                 var actual = await task;
                 CollectionAssert.AreEqual(expected, actual);
             }

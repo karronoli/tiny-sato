@@ -13,7 +13,8 @@
     public class JobStatusTest
     {
         const byte NULL = 0x00, STX = 0x02, ETX = 0x03, ENQ = 0x05, ESC = 0x1b, FS = 0x1c;
-        const byte ASCII_SPACE = 0x20, ASCII_ZERO = 0x30, ASCII_A = 0x41, ASCII_Z = 0x5a;
+        const byte ASCII_SPACE = 0x20, ASCII_ZERO = 0x30, ASCII_ONE = 0x31,
+            ASCII_A = 0x41, ASCII_H = 0x48, ASCII_Z = 0x5a;
 
         // STATUS4 standard http://www.sato.co.jp/webmanual/printer/cl4nx-j_cl6nx-j/main/main_GUID-D94C3DAD-1A55-4706-A86D-71EF71C6F3E3.html#
         static readonly byte[] HealthOKBody = new byte[]
@@ -142,12 +143,11 @@
         };
 
         static readonly IPEndPoint printEP = new IPEndPoint(IPAddress.Loopback, 9100);
-        static TcpListener listener;
+        static readonly TcpListener listener = new TcpListener(printEP) { ExclusiveAddressUse = true };
 
         [TestInitialize]
         public void Listen()
         {
-            listener = new TcpListener(printEP) { ExclusiveAddressUse = true };
             listener.Start(1);
         }
 
@@ -171,12 +171,7 @@
                     var actual_buffer_length = await stream.ReadAsync(dummy, 0, dummy.Length);
                     var buffer = dummy.Take(actual_buffer_length).ToArray();
 
-                    if (buffer.Length == 0)
-                    {
-                        var last = buffers.Last();
-                        if (last.Last() == ETX) break;
-                        Assert.Fail("bad request body");
-                    }
+                    if (buffer.Length == 0) break;
 
                     if (buffer.Last() == ENQ)
                     {
@@ -195,23 +190,24 @@
         [TestMethod]
         public async Task OnlineBufferNearFull()
         {
-            var task = ResponseForPrint(new List<byte[]> { HealthOnlinePrintingBufferNearFullBody, HealthOKBody, HealthOKBody });
+            var task = ResponseForPrint(new List<byte[]> { HealthOnlinePrintingBufferNearFullBody, HealthOKBody });
+            var expected = new List<byte>
+            {
+                ENQ, ENQ,
+                STX,
+                ESC, ASCII_A,
+                ESC, ASCII_Z,
+                ETX,
+             };
+
             using (var printer = new Printer(printEP))
             {
-                printer.Send();
+                var sent = printer.Send();
+                Assert.AreEqual(expected.Count, sent + 2 /* ENQ count */);
             }
 
             using (task)
             {
-                var expected = new List<byte>
-                {
-                    ENQ, ENQ, ENQ,
-                    STX,
-                    ESC, ASCII_A,
-                    ESC, ASCII_Z,
-                    ETX,
-                };
-
                 var actual = await task;
                 CollectionAssert.AreEqual(expected, actual);
             }
@@ -239,47 +235,93 @@
         [TestMethod]
         public async Task Offline()
         {
-            var task = ResponseForPrint(new List<byte[]> { HealthOfflineBody, HealthOKBody, HealthOKBody });
+            var task = ResponseForPrint(new List<byte[]> { HealthOfflineBody, HealthOKBody });
+            var expected = new List<byte>
+            {
+                ENQ, ENQ,
+                STX,
+                ESC, ASCII_A,
+                ESC, ASCII_Z,
+                ETX,
+            };
+
             using (var printer = new Printer(printEP))
             {
-                printer.Send();
+                var sent = printer.Send();
+                Assert.AreEqual(expected.Count, sent + 2 /* ENQ count */);
             }
 
             using (task)
             {
-                var expected = new List<byte>
-                {
-                    ENQ, ENQ, ENQ,
-                    STX,
-                    ESC, ASCII_A,
-                    ESC, ASCII_Z,
-                    ETX,
-                };
-
                 var actual = await task;
                 CollectionAssert.AreEqual(expected, actual);
             }
         }
 
         [TestMethod]
-        [ExpectedException(typeof(TinySatoPrinterUnitException))]
-        public void PaperError()
+        public async Task PaperError()
         {
-            _ = ResponseForPrint(new List<byte[]> { HealthErrorPaperBody, HealthOKBody, HealthOKBody });
-
-            using (var printer = new Printer(printEP)) { }
-        }
-
-        [TestMethod]
-        [ExpectedException(typeof(TinySatoPrinterUnitException))]
-        public void NoWaitAtMultiLabel()
-        {
-            _ = ResponseForPrint(new List<byte[]> { HealthOKBody, HealthOKBody, HealthOnlinePrintingBufferNearFullBody });
+            var task = ResponseForPrint(new List<byte[]> { HealthErrorPaperBody, HealthOKBody });
+            var expected = new List<byte>
+            {
+                ENQ, ENQ,
+                STX,
+                ESC, ASCII_A,
+                ESC, ASCII_Z,
+                ETX,
+            };
 
             using (var printer = new Printer(printEP))
             {
-                printer.AddStream();
-                printer.Send();
+                var sent = printer.Send();
+                Assert.AreEqual(expected.Count, sent + 2 /* + ENQ count */);
+            }
+
+            using (task)
+            {
+                var actual = await task;
+                CollectionAssert.AreEqual(expected, actual);
+            }
+        }
+
+        [TestMethod]
+        public async Task WaitBusyAtMultiLabel()
+        {
+            var timeout = TimeSpan.FromSeconds(10);
+            var task = ResponseForPrint(new List<byte[]> { HealthOKBody, HealthOnlinePrintingBufferNearFullBody, HealthOKBody, HealthOKBody });
+            var expected = new List<byte>
+            {
+                ENQ,
+                STX,
+                // AddStream
+                ESC, ASCII_A,
+                ESC, ASCII_Z,
+                ENQ,
+                ENQ,
+
+                // Send
+                ESC, ASCII_A,
+                ESC, ASCII_H, ASCII_ZERO, ASCII_ZERO, ASCII_ZERO, ASCII_ONE,
+                ESC, ASCII_Z,
+                ENQ,
+                ESC, ASCII_A,
+                ESC, ASCII_Z,
+                ETX,
+            };
+
+
+            using (var printer = new Printer(printEP))
+            {
+                var sent1 = printer.AddStream(timeout);
+                printer.MoveToX(1); // example command
+                var sent2 = printer.Send(timeout);
+                Assert.AreEqual(expected.Count, sent1 + sent2 + 4 /* ENQ count */);
+            }
+
+            using (task)
+            {
+                var actual = await task;
+                CollectionAssert.AreEqual(expected, actual);
             }
         }
     }
