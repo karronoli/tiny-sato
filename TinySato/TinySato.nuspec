@@ -15,7 +15,4 @@
     <dependencies>
     </dependencies>
   </metadata>
-  <files>
-    <file src="bin\Release\$Id$.dll" target="lib" />
-  </files>
 </package>
