@@ -293,7 +293,7 @@
             {
                 ENQ,
                 STX,
-                // AddStream
+                // AddStreamAsync
                 ESC, ASCII_A,
                 ESC, ASCII_Z,
                 ENQ,
@@ -313,7 +313,7 @@
             using (var printer = new Printer(printEP))
             using (var source = new CancellationTokenSource())
             {
-                var sent1 = printer.AddStream(timeout);
+                var sent1 = await printer.AddStreamAsync(source.Token);
                 printer.MoveToX(1); // example command
                 var sent2 = await printer.SendAsync(source.Token);
                 Assert.AreEqual(expected.Count, sent1 + sent2 + 4 /* ENQ count */);

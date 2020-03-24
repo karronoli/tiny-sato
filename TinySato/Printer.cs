@@ -125,26 +125,25 @@
         ///
         /// Add another empty stream for printing multi pages at once.
         /// </summary>
-        public int AddStream(TimeSpan PrintSendTimeout)
+        public async Task<int> AddStreamAsync(CancellationToken token)
         {
-            if (!(PrintSendTimeout.TotalSeconds > 0))
-            {
-                throw new TinySatoArgumentException($"Specify valid timeout (> 0). seconds: {PrintSendTimeout.TotalSeconds}");
-            }
+            if (ConnectionType == ConnectionType.Driver)
+                return AddStreamInternal();
+
+            if (ConnectionType != ConnectionType.IP)
+                throw new NotImplementedException();
 
             var sent = AddStreamInternal();
-            if (ConnectionType == ConnectionType.Driver) return sent;
 
-            var timer = Stopwatch.StartNew();
             this.status = new JobStatus(this.client.GetStream());
-            while (!this.status.OK && PrintSendTimeout > timer.Elapsed)
+            for (; !this.status.OK; this.status = this.status.Refresh())
             {
-                Task.Delay(PrintSendInterval).Wait();
-                this.status = this.status.Refresh();
+                if (token.IsCancellationRequested)
+                {
+                    token.ThrowIfCancellationRequested();
+                }
+                await Task.Delay(PrintSendInterval, token);
             }
-
-            if (!this.status.OK)
-                throw new TinySatoIOException($"Printer is busy. endpoint: {client.Client.RemoteEndPoint}, status: {status}");
 
             return sent;
         }
