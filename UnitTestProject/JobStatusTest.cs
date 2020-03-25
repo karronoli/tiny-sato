@@ -170,18 +170,17 @@
                 {
                     var dummy = new byte[client.ReceiveBufferSize];
                     var actual_buffer_length = await stream.ReadAsync(dummy, 0, dummy.Length);
-                    var buffer = dummy.Take(actual_buffer_length).ToArray();
+                    if (actual_buffer_length == 0) break;
 
-                    if (buffer.Length == 0) break;
-
-                    if (buffer.Last() == ENQ)
+                    var buffer = dummy.Take(actual_buffer_length);
+                    if (buffer.SequenceEqual(new byte[] { ENQ }))
                     {
                         var health = health_responses.ElementAt(i);
                         await stream.WriteAsync(health, 0, health.Length);
                         ++i;
                     }
 
-                    buffers.Add(buffer);
+                    buffers.Add(buffer.ToArray());
                 }
             }
 
