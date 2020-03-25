@@ -6,6 +6,7 @@
     using System.Linq;
     using System.Net;
     using System.Net.Sockets;
+    using System.Threading;
     using System.Threading.Tasks;
     using TinySato;
 
@@ -287,19 +288,18 @@
         [TestMethod]
         public async Task WaitBusyAtMultiLabel()
         {
-            var timeout = TimeSpan.FromSeconds(10);
             var task = ResponseForPrint(new List<byte[]> { HealthOKBody, HealthOnlinePrintingBufferNearFullBody, HealthOKBody, HealthOKBody });
             var expected = new List<byte>
             {
                 ENQ,
                 STX,
-                // AddStream
+                // AddStreamAsync
                 ESC, ASCII_A,
                 ESC, ASCII_Z,
                 ENQ,
                 ENQ,
 
-                // Send
+                // SendAsync
                 ESC, ASCII_A,
                 ESC, ASCII_H, ASCII_ZERO, ASCII_ZERO, ASCII_ZERO, ASCII_ONE,
                 ESC, ASCII_Z,
@@ -311,10 +311,11 @@
 
 
             using (var printer = new Printer(printEP))
+            using (var source = new CancellationTokenSource())
             {
-                var sent1 = printer.AddStream(timeout);
+                var sent1 = await printer.AddStreamAsync(source.Token);
                 printer.MoveToX(1); // example command
-                var sent2 = printer.Send(timeout);
+                var sent2 = await printer.SendAsync(source.Token);
                 Assert.AreEqual(expected.Count, sent1 + sent2 + 4 /* ENQ count */);
             }
 
