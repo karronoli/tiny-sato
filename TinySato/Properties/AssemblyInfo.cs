@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 // アセンブリに関連付けられている情報を変更するには、
 // これらの属性値を変更してください。
 [assembly: AssemblyTitle("TinySato")]
-[assembly: AssemblyDescription("You can construct and send SBPL packet to Sato printer. Sato printer is needed to be recognized by windows driver.")]
+[assembly: AssemblyDescription("You can construct and send SBPL packet to SATO printer. The printer is needed to be configured by windows driver or TCP connection.")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
 [assembly: AssemblyProduct("TinySato")]
@@ -31,5 +31,5 @@ using System.Runtime.InteropServices;
 //
 // すべての値を指定するか、下のように '*' を使ってビルドおよびリビジョン番号を 
 // 既定値にすることができます:
-[assembly: AssemblyVersion("1.1.3.*")]
-[assembly: AssemblyFileVersion("1.1.3")]
+[assembly: AssemblyVersion("1.1.5.*")]
+[assembly: AssemblyFileVersion("1.1.5")]

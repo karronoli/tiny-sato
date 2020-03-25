@@ -23,6 +23,19 @@
         // Don't dispose for persistent connection to printer
         protected Stream stream;
 
+        internal JobStatus(ConnectionType type)
+        {
+            if (type != ConnectionType.Driver)
+            {
+                throw new TinySatoArgumentException($"For Driver use only. Use another constructor. type:{type}");
+            }
+
+            ID = string.Empty;
+            Health = new Health('A');
+            LabelRemaining = 0;
+            Name = string.Empty;
+        }
+
         public JobStatus(Stream stream)
         {
             this.stream = stream;
@@ -50,7 +63,7 @@
             }
             catch (IOException e)
             {
-                throw new TinySatoException("The printer is not respond.", e);
+                throw new TinySatoIOException("The printer is not respond.", e);
             }
             finally
             {
@@ -68,8 +81,22 @@
             LabelRemaining = int.Parse(response.LabelRemaining);
             Name = response.Name;
 
-            if (Health.Error != Error.None)
-                throw new TinySatoException($"Printer failure. error: {Enum.GetName(typeof(Error), Health.Error)}");
+            switch (Health.Error)
+            {
+                case Error.None:
+                // recoverable errors
+                case Error.CoverOpen:
+                case Error.Paper:
+                    break;
+
+                case Error.Head:
+                case Error.Sensor:
+                case Error.Buffer:
+                case Error.Battery:
+                case Error.Other:
+                default:
+                    throw new TinySatoPrinterUnitException($"Printer Unit failure. error: {Enum.GetName(typeof(Error), Health.Error)}");
+            }
         }
 
         public bool OK
@@ -96,6 +123,7 @@
             message += $", {nameof(Health.Battery)}: {Enum.GetName(typeof(Battery), Health.Battery)}";
             message += $", {nameof(Health.Buffer)}: {Enum.GetName(typeof(Buffer), Health.Buffer)}";
             message += $", {nameof(Health.Error)}: {Enum.GetName(typeof(Error), Health.Error)}";
+
             return message;
         }
     }
@@ -161,7 +189,7 @@
         {
             var health = Definition.Where(h => h.Raw == status);
             if (health.Count() != 1)
-                throw new TinySatoException($"Printer status is unknown. status:{status}");
+                throw new TinySatoArgumentException($"Printer status is unknown. status:{status}");
             this = health.First();
         }
 

@@ -10,6 +10,7 @@
     using System.Net.Sockets;
     using System.Runtime.InteropServices;
     using System.Text;
+    using System.Threading;
     using System.Threading.Tasks;
 
     public partial class Printer : IDisposable
@@ -17,18 +18,16 @@
         private bool disposed = false;
 
         private IntPtr printer = IntPtr.Zero;
+        readonly TcpClient client;
 
-        static readonly TimeSpan ConnectWaitTimeout = TimeSpan.FromSeconds(3);
-        static readonly TimeSpan PrintSendTimeout = TimeSpan.FromMilliseconds(200); // CT408i driver default setting
-        private TcpClient client;
+        static readonly TimeSpan ConnectWaitTimeout = TimeSpan.FromSeconds(30);
+        static readonly TimeSpan ConnectWaitInterval = TimeSpan.FromMilliseconds(100);
+        static readonly TimeSpan PrintSendInterval = TimeSpan.FromMilliseconds(200); // CT408i driver default setting
 
         protected int operation_start_index = 1;
         protected List<byte[]> operations = new List<byte[]> {
             new byte[] { Convert.ToByte(STX) }
         };
-
-        protected int soft_offset_x = 0;
-        protected int soft_offset_y = 0;
 
         public Barcode Barcode { get; }
         public Graphic Graphic { get; }
@@ -41,25 +40,33 @@
             ASCII_ETX = Convert.ToByte(ETX),
             ASCII_ENQ = Convert.ToByte(ENQ), ASCII_ESC = Convert.ToByte(ESC);
 
-        protected readonly string
+        static readonly string
             OPERATION_A = ESC + "A",
             OPERATION_Z = ESC + "Z";
 
         protected JobStatus status;
 
-        public Printer(string name)
+        public Printer(string name, string DocName = "RAW DOCUMENT")
         {
+            if (string.IsNullOrEmpty(DocName))
+            {
+                throw new TinySatoArgumentException($"The document name is empty. name:{name}, DocName:{DocName}");
+            }
+
             this.ConnectionType = ConnectionType.Driver;
             this.Barcode = new Barcode(this);
             this.Graphic = new Graphic(this);
 
-            if (!UnsafeNativeMethods.OpenPrinter(name.Normalize(), out printer, IntPtr.Zero))
-                throw new TinySatoException("failed to use printer.",
+            if (!UnsafeNativeMethods.OpenPrinter(name, out printer, IntPtr.Zero))
+                throw new TinySatoPrinterNotFoundException($"The printer not found. name:{name}",
                     new Win32Exception(Marshal.GetLastWin32Error()));
             const int level = 1; // for not win98
-            var di = new DOCINFO() { pDataType = "raw", pDocName = "RAW DOCUMENT" };
+            var di = new DOCINFO() { pDataType = "raw", pDocName = DocName };
             if (!UnsafeNativeMethods.StartDocPrinter(printer, level, di))
-                throw new Win32Exception(Marshal.GetLastWin32Error());
+                throw new TinySatoIOException($"Failed to use printer. name:{name}",
+                    new Win32Exception(Marshal.GetLastWin32Error()));
+
+            this.status = new JobStatus(ConnectionType.Driver);
         }
 
         public Printer(IPEndPoint endpoint)
@@ -68,109 +75,32 @@
             this.Barcode = new Barcode(this);
             this.Graphic = new Graphic(this);
 
-            this.client = new TcpClient() { SendTimeout = PrintSendTimeout.Milliseconds };
-            try
+            this.client = new TcpClient() { SendTimeout = (int)PrintSendInterval.TotalMilliseconds };
+            var timer = Stopwatch.StartNew();
+            using (var task = this.client.ConnectAsync(endpoint.Address, endpoint.Port))
             {
-                this.client.Connect(endpoint);
-            }
-            catch (SocketException e)
-            {
-                throw new TinySatoException($"The printer is maybe none in the same network. endpoint: {endpoint}", e);
-            }
-
-            this.status = new JobStatus(client.GetStream());
-            if (!status.OK)
-            {
-                var timer = Stopwatch.StartNew();
-                while (ConnectWaitTimeout > timer.Elapsed)
+                try
                 {
-                    Task.Delay(TimeSpan.FromMilliseconds(100)).Wait();
-                    this.status = status.Refresh();
-                    if (status.OK) break;
+                    if (!task.Wait(ConnectWaitTimeout))
+                    {
+                        throw new TinySatoIOException($"The printer is maybe none in the same network. endpoint: {endpoint}");
+                    }
                 }
-                if (!status.OK)
-                    throw new TinySatoException($"Printer is busy. endpoint: {endpoint}, status: {status}");
+                catch (AggregateException e)
+                {
+                    throw new TinySatoPrinterNotFoundException($"The printer is bad network status. endpoint: {endpoint}", e.InnerException);
+                }
+
+                this.status = new JobStatus(this.client.GetStream());
+                while (!this.status.OK && ConnectWaitTimeout > timer.Elapsed)
+                {
+                    Task.Delay(ConnectWaitInterval).Wait();
+                    this.status = this.status.Refresh();
+                }
             }
-        }
 
-        public void MoveToX(int x)
-        {
-            var _x = x + soft_offset_x;
-            if (!(1 <= _x && _x <= 9999))
-                throw new TinySatoException("Specify 1-9999 dots.");
-            Add(string.Format("H{0:D4}", _x));
-        }
-
-        public void MoveToY(int y)
-        {
-            var _y = y + soft_offset_y;
-            if (!(1 <= _y && _y <= 9999))
-                throw new TinySatoException("Specify 1-9999 dots.");
-            Add(string.Format("V{0:D4}", _y));
-        }
-
-        public void SetGapSizeBetweenLabels(int y)
-        {
-            if (!(0 <= y && y <= 64))
-                throw new TinySatoException("Specify 0-64 dots.");
-            Insert(operation_start_index + 0, OPERATION_A);
-            Insert(operation_start_index + 1, ESC + string.Format("TG{0:D2}", y));
-            Insert(operation_start_index + 2, OPERATION_Z);
-            operation_start_index += 3;
-        }
-
-        public void SetSpeed(int speed)
-        {
-            if (!(1 <= speed && speed <= 5))
-                throw new TinySatoException("Specify 1-5 speed");
-            Insert(operation_start_index + 0, OPERATION_A);
-            Insert(operation_start_index + 1, ESC + string.Format("CS{0:D2}", speed));
-            Insert(operation_start_index + 2, OPERATION_Z);
-            operation_start_index += 3;
-        }
-
-        public void SetStartPosition(int x, int y)
-        {
-            if (!(Math.Abs(x) <= 999))
-                throw new TinySatoException("Specify -999 <= x <= 999 dots.");
-            if (!(Math.Abs(y) <= 999))
-                throw new TinySatoException("Specify -999 <= y <= 999 dots.");
-            Add(string.Format("A3V{0:+000;-000}H{1:+000;-000}", y, x));
-        }
-
-        public void SetStartPositionEx(int x, int y)
-        {
-            if (!(Math.Abs(x) <= 9999))
-                throw new TinySatoException("Specify -9999 <= x <= 9999 dots.");
-            if (!(Math.Abs(y) <= 9999))
-                throw new TinySatoException("Specify -9999 <= y <= 9999 dots.");
-            soft_offset_x = x;
-            soft_offset_y = y;
-        }
-
-        public void SetPaperSize(int height, int width)
-        {
-            if (!(1 <= height && height <= 9999))
-                throw new TinySatoException("Specify 1-9999 dots for height.");
-            if (!(1 <= width && width <= 9999))
-                throw new TinySatoException("Specify 1-9999 dots for width.");
-            Insert(operation_start_index + 0, OPERATION_A);
-            Insert(operation_start_index + 1, ESC + string.Format("A1{0:D4}{1:D4}", height, width));
-            Insert(operation_start_index + 2, OPERATION_Z);
-            operation_start_index += 3;
-        }
-
-        public void SetCalendar(DateTime dt)
-        {
-            Add(string.Format("WT{0:D2}{1:D2}{2:D2}{3:D2}{4:D2}",
-                dt.Year % 1000, dt.Month, dt.Day, dt.Hour, dt.Minute));
-        }
-
-        public void SetPageNumber(uint number_of_pages)
-        {
-            if (!(1 <= number_of_pages && number_of_pages <= 999999))
-                throw new TinySatoException("Specify 1-999999 pages.");
-            Add(string.Format("Q{0:D6}", number_of_pages));
+            if (!this.status.OK)
+                throw new TinySatoIOException($"Printer is busy. endpoint: {endpoint}, status: {this.status}");
         }
 
         public void Add(string operation)
@@ -195,7 +125,32 @@
         ///
         /// Add another empty stream for printing multi pages at once.
         /// </summary>
-        public int AddStream()
+        public async Task<int> AddStreamAsync(CancellationToken token)
+        {
+            if (ConnectionType == ConnectionType.Driver)
+                return AddStreamInternal();
+
+            if (ConnectionType != ConnectionType.IP)
+                throw new NotImplementedException();
+
+            var sent = AddStreamInternal();
+
+            this.status = new JobStatus(this.client.GetStream());
+            for (; !this.status.OK; this.status = this.status.Refresh())
+            {
+                if (token.IsCancellationRequested)
+                {
+                    token.ThrowIfCancellationRequested();
+                }
+                await Task.Delay(PrintSendInterval, token);
+            }
+
+            return sent;
+        }
+
+        public int AddStream() => AddStreamInternal();
+
+        int AddStreamInternal()
         {
             operations.Insert(operation_start_index,
                 Encoding.ASCII.GetBytes(OPERATION_A));
@@ -210,13 +165,35 @@
             return flatten.Length;
         }
 
-        public int Send(uint number_of_pages)
+        public async Task<int> SendAsync(CancellationToken token)
         {
-            this.SetPageNumber(number_of_pages);
-            return Send();
+            if (ConnectionType == ConnectionType.Driver)
+                return this.SendInternal();
+
+            if (ConnectionType != ConnectionType.IP)
+                throw new NotImplementedException();
+
+            var sent1 = this.AddStreamInternal();
+
+            this.status = new JobStatus(this.client.GetStream());
+            for (; !this.status.OK; this.status = this.status.Refresh())
+            {
+                if (token.IsCancellationRequested)
+                {
+                    token.ThrowIfCancellationRequested();
+                }
+                await Task.Delay(PrintSendInterval, token);
+            }
+
+            var sent2 = this.SendInternal();
+
+            return sent1 + sent2;
         }
 
-        public int Send()
+
+        public int Send() => SendInternal();
+
+        int SendInternal()
         {
             operations.Insert(operation_start_index,
                 Encoding.ASCII.GetBytes(OPERATION_A));
@@ -233,9 +210,17 @@
 
         void Send(byte[] raw)
         {
-            if (printer != IntPtr.Zero) SendWin32(raw);
-            else if (client != null) SendTcp(raw);
-            else throw new NotImplementedException();
+            switch (ConnectionType)
+            {
+                case ConnectionType.Driver:
+                    SendWin32(raw);
+                    break;
+                case ConnectionType.IP:
+                    SendTcp(raw);
+                    break;
+                default:
+                    throw new NotImplementedException();
+            }
         }
 
         void SendWin32(byte[] raw)
@@ -254,7 +239,7 @@
             }
             catch (Win32Exception e)
             {
-                throw new TinySatoException("failed to send operations for windows printer.", e);
+                throw new TinySatoIOException($"Failed to send operations for windows printer. ErrorCode: {e.ErrorCode}", e);
             }
             finally
             {
@@ -266,14 +251,11 @@
         {
             try
             {
-                this.status = status.Refresh();
-                if (!status.OK)
-                    throw new TinySatoException($"Printer is failure. {status}");
                 client.Client.Send(raw);
             }
             catch (SocketException e)
             {
-                throw new TinySatoException("failed to send operations by tcp.", e);
+                throw new TinySatoIOException($"Failed to send operations. endpoint: {client.Client.RemoteEndPoint}, ErrorCode: {e.ErrorCode}", e);
             }
         }
 
@@ -287,13 +269,13 @@
             {
                 var code = Marshal.GetLastWin32Error();
                 var inner = new Win32Exception(code);
-                throw new TinySatoException("failed to end document.", inner);
+                throw new TinySatoIOException("failed to end document.", inner);
             }
             if (printer != IntPtr.Zero && !UnsafeNativeMethods.ClosePrinter(printer))
             {
                 var code = Marshal.GetLastWin32Error();
                 var inner = new Win32Exception(code);
-                throw new TinySatoException("failed to close printer.", inner);
+                throw new TinySatoIOException("failed to close printer.", inner);
             }
             printer = IntPtr.Zero;
         }

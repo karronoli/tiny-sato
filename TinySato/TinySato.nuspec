@@ -5,7 +5,7 @@
     <version>$Version$</version>
     <authors>karronoli</authors>
     <owners>karronoli</owners>
-    <licenseUrl>https://raw.githubusercontent.com/karronoli/tiny-sato/master/LICENSE</licenseUrl>
+    <license type="expression">Apache-2.0</license>
     <projectUrl>https://github.com/karronoli/tiny-sato</projectUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>$description$</description>
@@ -15,7 +15,4 @@
     <dependencies>
     </dependencies>
   </metadata>
-  <files>
-    <file src="bin\Release\$Id$.dll" target="lib" />
-  </files>
 </package>

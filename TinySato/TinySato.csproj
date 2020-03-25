@@ -9,7 +9,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>TinySato</RootNamespace>
     <AssemblyName>TinySato</AssemblyName>
-    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
   </PropertyGroup>
@@ -48,6 +48,7 @@
     <Compile Include="Communication\JobStatus.cs" />
     <Compile Include="ConnectionType.cs" />
     <Compile Include="Graphic.cs" />
+    <Compile Include="Printer\Behavior.cs" />
     <Compile Include="Printer\Density.cs" />
     <Compile Include="Printer\Sensor.cs" />
     <Compile Include="Printer.cs" />
@@ -55,7 +56,11 @@
     <Compile Include="Printer\Search.cs" />
     <Compile Include="Search\MACAddress.cs" />
     <Compile Include="Search\Response.cs" />
+    <Compile Include="TinySatoArgumentException.cs" />
     <Compile Include="TinySatoException.cs" />
+    <Compile Include="TinySatoIOException.cs" />
+    <Compile Include="TinySatoPrinterNotFoundException.cs" />
+    <Compile Include="TinySatoPrinterUnitExpception.cs" />
     <Compile Include="UnsafeNativeMethods.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

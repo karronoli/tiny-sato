@@ -7,28 +7,45 @@ namespace UnitTestProject
     using System.IO;
     using System.Linq;
     using System.Net;
-    using System.Net.NetworkInformation;
     using System.Net.Sockets;
     using System.Text;
     using System.Threading.Tasks;
     using TinySato;
-    using TinySato.Search;
 
     [TestClass]
     public class UnitTest1
     {
-        const string printer_mac = "02:00:00:00:00:01";
-        static readonly string printer_mac_eui48 = printer_mac.Replace(':', '-').ToUpper();
+        const byte NULL = 0x0, STX = 0x02, ETX = 0x03, ENQ = 0x05, ESC = 0x1b, FS = 0x1c;
+        const byte ASCII_SPACE = 0x20, ASCII_ZERO = 0x30, ASCII_Z = 0x5a;
 
-        const byte SOH = 0x01, STX = 0x02, ETX = 0x03, ENQ = 0x05, ESC = 0x1b;
-        const byte ASCII_A = 0x41, ASCII_L = 0x4c, ASCII_Z = 0x5a;
+        // STATUS4 standard http://www.sato.co.jp/webmanual/printer/cl4nx-j_cl6nx-j/main/main_GUID-D94C3DAD-1A55-4706-A86D-71EF71C6F3E3.html#
+        static readonly byte[] HealthOKBody = new byte[]
+        {
+            NULL, NULL, NULL, FS,
+            ENQ,
+            STX,
 
-        static readonly byte[] SearchResponseBody = File.ReadAllBytes("search-response.bin");
-        static readonly byte[] HealthOKBody = File.ReadAllBytes("health-ok.bin");
+            // JobStatus.ID
+            ASCII_SPACE, ASCII_SPACE,
 
-        static readonly IPEndPoint searchEP = new IPEndPoint(IPAddress.Any, 19541);
-        static readonly IPEndPoint printEP = new IPEndPoint(IPAddress.Any, 9100);
-        static TcpListener listener;
+            // JobStatus.Health = State.Online
+            Convert.ToByte('A'),
+
+            // JobStatus.LabelRemaining = 0
+            ASCII_ZERO, ASCII_ZERO, ASCII_ZERO,
+            ASCII_ZERO, ASCII_ZERO, ASCII_ZERO,
+
+            // JobStatus.Name
+            ASCII_SPACE, ASCII_SPACE, ASCII_SPACE, ASCII_SPACE,
+            ASCII_SPACE, ASCII_SPACE, ASCII_SPACE, ASCII_SPACE,
+            ASCII_SPACE, ASCII_SPACE, ASCII_SPACE, ASCII_SPACE,
+            ASCII_SPACE, ASCII_SPACE, ASCII_SPACE, ASCII_SPACE,
+
+            ETX,
+        };
+
+        static readonly IPEndPoint printEP = new IPEndPoint(IPAddress.Loopback, 9100);
+        static readonly TcpListener listener = new TcpListener(printEP) { ExclusiveAddressUse = true };
 
         const double inch2mm = 25.4;
         const double dpi = 203;
@@ -38,7 +55,6 @@ namespace UnitTestProject
         [TestInitialize]
         public void Listen()
         {
-            listener = new TcpListener(printEP) { ExclusiveAddressUse = true };
             listener.Start(1);
         }
 
@@ -48,7 +64,7 @@ namespace UnitTestProject
             listener.Stop();
         }
 
-        protected async static Task<byte[]> ResponseForPrint()
+        async static Task<byte[]> ResponseForPrint()
         {
             var buffers = new List<byte[]>();
 
@@ -59,134 +75,81 @@ namespace UnitTestProject
                 {
                     var dummy = new byte[client.ReceiveBufferSize];
                     var actual_buffer_length = await stream.ReadAsync(dummy, 0, dummy.Length);
+                    if (actual_buffer_length == 0) break;
+
                     var buffer = dummy.Take(actual_buffer_length);
-
-                    if (buffer.Count() == 0)
-                    {
-                        var last = buffers.Last();
-                        if (last.Last() == ETX) break;
-                    }
-
-                    if (buffer.Last() == ENQ)
+                    if (buffer.SequenceEqual(new byte[] { ENQ }))
                         await stream.WriteAsync(HealthOKBody, 0, HealthOKBody.Length);
 
                     buffers.Add(buffer.ToArray());
                 }
-
-                return buffers.SelectMany(buffer => buffer.Where(b => b != ENQ)).ToArray();
-            }
-        }
-
-        protected async static Task<byte[]> ResponseForSearch()
-        {
-            UdpReceiveResult result;
-            using (var server = new UdpClient(searchEP) { EnableBroadcast = true })
-            {
-                server.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-                result = await server.ReceiveAsync();
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(10));
-
-            using (var client = new UdpClient() { EnableBroadcast = true })
-            {
-                client.Connect(new IPEndPoint(IPAddress.Broadcast, result.RemoteEndPoint.Port));
-                await client.SendAsync(SearchResponseBody, SearchResponseBody.Length);
-            }
-
-            return result.Buffer;
-        }
-
-        [TestMethod]
-        public async Task SearchPrinter()
-        {
-            var task = ResponseForSearch();
-            var wait_time = TimeSpan.FromMilliseconds(500);
-
-            Response response = null;
-            using (task)
-            {
-                var mac = PhysicalAddress.Parse(printer_mac_eui48);
-                Printer.ClearSearchCache();
-                var responses = Printer.Search(wait_time).Where(r => r.MACAddress.Equals(mac));
-                Assert.IsInstanceOfType(responses, typeof(IEnumerable<Response>));
-                CollectionAssert.AreEqual(new byte[] { SOH, ASCII_L, ASCII_A }, await task);
-                Assert.AreEqual(1, responses.Count());
-                response = responses.First();
-            }
-
-            Assert.AreEqual(IPAddress.Parse("127.0.0.1"), response.IPAddress);
-            Assert.AreEqual(IPAddress.Parse("255.0.0.0"), response.SubnetMask);
-            Assert.AreEqual(IPAddress.Parse("0.0.0.0"), response.Gateway);
-            Assert.AreEqual("Lesprit Series", response.Name);
-            Assert.IsTrue(response.DHCP);
-            Assert.IsTrue(response.RARP);
-        }
-
-        [TestMethod]
-        [ExpectedException(typeof(TinySatoException))]
-        public void BusyPrinter()
-        {
-            listener.Stop();
-            var task = ResponseForSearch();
-            Printer.ClearSearchCache();
-            using (task)
-            using (var printer = Printer.Find(printer_mac)) { }
+            return buffers.SelectMany(buffer => buffer).ToArray();
         }
 
         [TestMethod]
         public async Task MultiLabel()
         {
-            var task = ResponseForSearch();
-            var task2 = ResponseForPrint();
+            var task = ResponseForPrint();
+            int sent1 = 0, sent2 = 0, sent3 = 0;
 
-            Printer.ClearSearchCache();
-
-            using (task)
-            using (var printer = Printer.Find(printer_mac))
+            using (var printer = new Printer(printEP))
             {
                 // page 1
                 printer.Barcode.AddCODE128(1, 2, "HELLO");
                 printer.SetPageNumber(3);
-                printer.AddStream();
+                sent1 = printer.AddStream();
 
                 // page 2
                 printer.Barcode.AddCODE128(4, 5, "WORLD");
                 printer.SetPageNumber(6);
-                printer.AddStream();
+                sent2 = printer.AddStream();
 
                 // page 3
                 printer.Barcode.AddCODE128(7, 8, "!!!");
                 printer.SetPageNumber(9);
-                printer.Send();
+                sent3 = printer.Send();
             }
 
-            var expected = new string[]
+            // page 1
+            var expected1 = new string[]
             {
-                // page 1
                 "A",
                 "BG" + "01" + "002" + "HELLO",
                 "Q" + "000003",
                 "Z",
+            }.SelectMany(x => (new byte[] { ESC }).Concat(Encoding.ASCII.GetBytes(x)));
 
-                // page 2
+            // page 2
+            var expected2 = new string[]
+            {
                 "A",
                 "BG" + "04" + "005" + "WORLD",
                 "Q" + "000006",
                 "Z",
+            }.SelectMany(x => (new byte[] { ESC }).Concat(Encoding.ASCII.GetBytes(x)));
 
-                // page 3
+            // page 3
+            var expected3 = new string[]
+            {
                 "A",
                 "BG" + "07" + "008" + "!!!",
                 "Q" + "000009",
                 "Z",
-            }.SelectMany(x => (new byte[] { ESC }).Concat(Encoding.ASCII.GetBytes(x)))
-            .Prepend(STX).Append(ETX);
+            }.SelectMany(x => (new byte[] { ESC }).Concat(Encoding.ASCII.GetBytes(x)));
 
-            using (task2)
+            var expected = new byte[] { ENQ, STX }.Concat(expected1)
+                .Concat(expected2)
+                .Concat(expected3)
+                .Append(ETX)
+                .ToList();
+            using (task)
             {
-                var actual = await task2;
-                CollectionAssert.AreEqual(expected.ToArray(), actual);
+                Assert.AreEqual(expected.Count, sent1 + sent2 + sent3 + 1 /* ENQ count */);
+
+                var actual = await task;
+                CollectionAssert.AreEqual(expected, actual);
             }
         }
 
@@ -194,12 +157,10 @@ namespace UnitTestProject
         public async Task ExampleBarcode()
         {
             var barcode = "1234567890128";
-            var task = ResponseForSearch();
-            var task2 = ResponseForPrint();
-            Printer.ClearSearchCache();
+            var task = ResponseForPrint();
+            int sent = 0;
 
-            using (task)
-            using (var printer = Printer.Find(printer_mac))
+            using (var printer = new Printer(printEP))
             {
                 Assert.IsInstanceOfType(printer, typeof(Printer));
                 Assert.AreEqual(ConnectionType.IP, printer.ConnectionType);
@@ -222,10 +183,10 @@ namespace UnitTestProject
 
                 // print
                 printer.SetPageNumber(1);
-                printer.Send();
+                sent = printer.Send();
             }
 
-            IEnumerable<byte> expected = new string[]
+            var expected = (new byte[] { ENQ, STX }).Concat(new string[]
             {
                 // settings
                 "A",
@@ -257,25 +218,25 @@ namespace UnitTestProject
                 // print
                 "Q" + "000001",
                 "Z"
-            }.SelectMany(x => (new byte[] { ESC }).Concat(Encoding.ASCII.GetBytes(x)))
-            .Prepend(STX).Append(ETX);
+            }.SelectMany(x => (new byte[] { ESC }).Concat(Encoding.ASCII.GetBytes(x))))
+            .Append(ETX).ToList();
 
-            using (task2)
+            using (task)
             {
-                var actual = await task2;
-                CollectionAssert.AreEqual(expected.ToArray(), actual);
+                Assert.AreEqual(expected.Count, sent + 1 /* ENQ count */);
+
+                var actual = await task;
+                CollectionAssert.AreEqual(expected, actual);
             }
         }
 
         [TestMethod]
         public async Task ExampleGraphic()
         {
-            var task = ResponseForSearch();
-            var task2 = ResponseForPrint();
-            Printer.ClearSearchCache();
+            var task = ResponseForPrint();
+            int sent = 0;
 
-            using (task)
-            using (var printer = Printer.Find(printer_mac))
+            using (var printer = new Printer(printEP))
             {
                 int width = (int)Math.Round(85.0 * mm2dot),
                     height = (int)Math.Round(50.0 * mm2dot);
@@ -303,10 +264,10 @@ namespace UnitTestProject
                 }
                 // print
                 printer.SetPageNumber(1);
-                printer.Send();
+                sent = printer.Send();
             }
 
-            IEnumerable<byte> expected = new string[]
+            var expected = (new byte[] { ENQ, STX }).Concat(new string[]
             {
                 "A",
 
@@ -324,17 +285,19 @@ namespace UnitTestProject
                 "H0001",
                 "V0001",
                 string.Format("GM{0},", new FileInfo("output.bmp").Length),
-            }.SelectMany(x => (new byte[] { ESC }).Concat(Encoding.ASCII.GetBytes(x)))
+            }.SelectMany(x => (new byte[] { ESC }).Concat(Encoding.ASCII.GetBytes(x))))
             .Concat(File.ReadAllBytes("output.bmp"))
             // print
-            .Append(ESC).Concat(Encoding.ASCII.GetBytes("Q000001"))
-            .Concat(new byte[] { ESC, ASCII_Z })
-            .Prepend(STX).Append(ETX);
+            .Concat((new byte[] { ESC }).Concat(Encoding.ASCII.GetBytes("Q000001")))
+            .Concat(new byte[] { ESC, ASCII_Z, ETX })
+            .ToList();
 
-            using (task2)
+            using (task)
             {
-                var actual = await task2;
-                CollectionAssert.AreEqual(expected.ToArray(), actual);
+                Assert.AreEqual(expected.Count, sent + 1 /* ENQ count */);
+
+                var actual = await task;
+                CollectionAssert.AreEqual(expected, actual);
             }
         }
     }
