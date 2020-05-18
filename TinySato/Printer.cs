@@ -146,7 +146,8 @@
                 {
                     token.ThrowIfCancellationRequested();
                 }
-                await Task.Delay(PrintSendInterval, token);
+                // No token without TaskCanceledException
+                await Task.Delay(PrintSendInterval);
             }
 
             return sent;
@@ -186,7 +187,8 @@
                 {
                     token.ThrowIfCancellationRequested();
                 }
-                await Task.Delay(PrintSendInterval, token);
+                // No token without TaskCanceledException
+                await Task.Delay(PrintSendInterval);
             }
 
             var sent2 = this.SendInternal();
