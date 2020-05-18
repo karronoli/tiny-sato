@@ -75,7 +75,11 @@
             this.Barcode = new Barcode(this);
             this.Graphic = new Graphic(this);
 
-            this.client = new TcpClient() { SendTimeout = (int)PrintSendInterval.TotalMilliseconds };
+            this.client = new TcpClient()
+            {
+                SendTimeout = (int)PrintSendInterval.TotalMilliseconds,
+                NoDelay = true
+            };
             var timer = Stopwatch.StartNew();
             using (var task = this.client.ConnectAsync(endpoint.Address, endpoint.Port))
             {
