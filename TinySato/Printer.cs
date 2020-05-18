@@ -131,6 +131,8 @@
         /// </summary>
         public async Task<int> AddStreamAsync(CancellationToken token)
         {
+            token.ThrowIfCancellationRequested();
+
             if (ConnectionType == ConnectionType.Driver)
                 return AddStreamInternal();
 
@@ -142,10 +144,7 @@
             this.status = new JobStatus(this.client.GetStream());
             for (; !this.status.OK; this.status = this.status.Refresh())
             {
-                if (token.IsCancellationRequested)
-                {
-                    token.ThrowIfCancellationRequested();
-                }
+                token.ThrowIfCancellationRequested();
                 // No token without TaskCanceledException
                 await Task.Delay(PrintSendInterval);
             }
@@ -172,6 +171,8 @@
 
         public async Task<int> SendAsync(CancellationToken token)
         {
+            token.ThrowIfCancellationRequested();
+
             if (ConnectionType == ConnectionType.Driver)
                 return this.SendInternal();
 
@@ -183,10 +184,7 @@
             this.status = new JobStatus(this.client.GetStream());
             for (; !this.status.OK; this.status = this.status.Refresh())
             {
-                if (token.IsCancellationRequested)
-                {
-                    token.ThrowIfCancellationRequested();
-                }
+                token.ThrowIfCancellationRequested();
                 // No token without TaskCanceledException
                 await Task.Delay(PrintSendInterval);
             }
