@@ -75,7 +75,11 @@
             this.Barcode = new Barcode(this);
             this.Graphic = new Graphic(this);
 
-            this.client = new TcpClient() { SendTimeout = (int)PrintSendInterval.TotalMilliseconds };
+            this.client = new TcpClient()
+            {
+                SendTimeout = (int)PrintSendInterval.TotalMilliseconds,
+                NoDelay = true
+            };
             var timer = Stopwatch.StartNew();
             using (var task = this.client.ConnectAsync(endpoint.Address, endpoint.Port))
             {
@@ -127,6 +131,8 @@
         /// </summary>
         public async Task<int> AddStreamAsync(CancellationToken token)
         {
+            token.ThrowIfCancellationRequested();
+
             if (ConnectionType == ConnectionType.Driver)
                 return AddStreamInternal();
 
@@ -138,11 +144,9 @@
             this.status = new JobStatus(this.client.GetStream());
             for (; !this.status.OK; this.status = this.status.Refresh())
             {
-                if (token.IsCancellationRequested)
-                {
-                    token.ThrowIfCancellationRequested();
-                }
-                await Task.Delay(PrintSendInterval, token);
+                token.ThrowIfCancellationRequested();
+                // No token without TaskCanceledException
+                await Task.Delay(PrintSendInterval);
             }
 
             return sent;
@@ -167,6 +171,8 @@
 
         public async Task<int> SendAsync(CancellationToken token)
         {
+            token.ThrowIfCancellationRequested();
+
             if (ConnectionType == ConnectionType.Driver)
                 return this.SendInternal();
 
@@ -178,11 +184,9 @@
             this.status = new JobStatus(this.client.GetStream());
             for (; !this.status.OK; this.status = this.status.Refresh())
             {
-                if (token.IsCancellationRequested)
-                {
-                    token.ThrowIfCancellationRequested();
-                }
-                await Task.Delay(PrintSendInterval, token);
+                token.ThrowIfCancellationRequested();
+                // No token without TaskCanceledException
+                await Task.Delay(PrintSendInterval);
             }
 
             var sent2 = this.SendInternal();
