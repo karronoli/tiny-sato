@@ -87,6 +87,7 @@
                 // recoverable errors
                 case Error.CoverOpen:
                 case Error.Paper:
+                case Error.NotUsed:
                     break;
 
                 case Error.Head:
@@ -139,7 +140,7 @@
 
     public enum Buffer { NearFull, OK, Unknown }
 
-    public enum Error { None, Buffer, Paper, Battery, Sensor, Head, CoverOpen, Other }
+    public enum Error { None, Buffer, NotUsed, Paper, Battery, Sensor, Head, CoverOpen, Other }
 
     public struct Health
     {
@@ -177,6 +178,7 @@
             new Health('V', State.OnlineAnalyzing, Battery.NearEnd, Buffer.NearFull),
 
             new Health('a', Error.Buffer),
+            new Health('b', Error.NotUsed),
             new Health('c', Error.Paper),
             new Health('d', Error.Battery),
             new Health('f', Error.Sensor),
