@@ -55,6 +55,7 @@ namespace UnitTestProject
         [TestInitialize]
         public void Listen()
         {
+            listener.Server.NoDelay = true;
             listener.Start(1);
         }
 
