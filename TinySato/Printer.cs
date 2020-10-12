@@ -117,6 +117,14 @@
             operations.Add(raw_operation);
         }
 
+        public byte[] PopOperation()
+        {
+            var last = operations.Last();
+            operations.RemoveAt(operations.Count - 1);
+
+            return last;
+        }
+
         protected void Insert(int index, string operation)
         {
             operations.Insert(
