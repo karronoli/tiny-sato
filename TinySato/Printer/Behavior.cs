@@ -10,16 +10,16 @@
         public void MoveToX(int x)
         {
             var _x = x + soft_offset_x;
-            if (!(1 <= _x && _x <= 9999))
-                throw new TinySatoArgumentException("Specify 1-9999 dots.");
+            if (!(0 <= _x && _x <= 9999))
+                throw new TinySatoArgumentException("Specify 0-9999 dots.");
             Add(string.Format("H{0:D4}", _x));
         }
 
         public void MoveToY(int y)
         {
             var _y = y + soft_offset_y;
-            if (!(1 <= _y && _y <= 9999))
-                throw new TinySatoArgumentException("Specify 1-9999 dots.");
+            if (!(0 <= _y && _y <= 9999))
+                throw new TinySatoArgumentException("Specify 0-9999 dots.");
             Add(string.Format("V{0:D4}", _y));
         }
 
