@@ -107,7 +107,7 @@
                 throw new TinySatoIOException($"Printer is busy. endpoint: {endpoint}, status: {this.status}");
         }
 
-        public void Add(string operation)
+        internal void Add(string operation)
         {
             operations.Add(Encoding.ASCII.GetBytes(ESC + operation));
         }
@@ -115,6 +115,11 @@
         internal void Add(byte[] raw_operation)
         {
             operations.Add(raw_operation);
+        }
+
+        public void PushOperation(IEnumerable<byte> operation)
+        {
+            operations.Add(operation.ToArray());
         }
 
         public byte[] PopOperation()
