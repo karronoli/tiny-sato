@@ -301,5 +301,78 @@ namespace UnitTestProject
                 CollectionAssert.AreEqual(expected, actual);
             }
         }
+
+        [TestMethod]
+        public async Task AddCODE128()
+        {
+            var task = ResponseForPrint();
+            int bar_width = 1, symbol_height = 2, X = 3, Y = 4;
+            // start B + data1 + shift C + data2 + check + stop
+            var print_data = "AaBbCc123456789";
+            var symbol_width = 11 + 11 * 7 + 11 + 11 * 8 / 2 + 11 + 13;
+            var operation = new byte[] { ESC }.Concat(Encoding.ASCII.GetBytes(
+                "BG" + $"{bar_width:D2}" + $"{symbol_height:D3}"
+                + ">HAaBbCc1>C23456789"));
+
+            using (var printer = new Printer(printEP))
+            {
+                var size_codeBC = printer.Barcode.AddCODE128(bar_width, symbol_height, print_data,
+                    (Size size) =>
+                    {
+                        Assert.AreEqual(symbol_width, size.Width);
+                        Assert.AreEqual(symbol_height, size.Height);
+
+                        printer.MoveToX(X);
+                        printer.MoveToY(Y);
+                    });
+                Assert.AreEqual(symbol_width, size_codeBC.Width);
+                Assert.AreEqual(symbol_height, size_codeBC.Height);
+
+                var dummy = Encoding.ASCII.GetBytes("dummy");
+                printer.PushOperation(dummy);
+                CollectionAssert.AreEqual(dummy, printer.PopOperation());
+
+                // start B + data + check + stop
+                var symbol_width_codeB = 11 + 11 * 8 + 11 + 13;
+                var size_codeB = printer.Barcode.AddCODE128(bar_width, symbol_height,
+                    "ABC12345",
+                    (Size size) =>
+                    {
+                        Assert.AreEqual(symbol_width_codeB, size.Width);
+                        Assert.AreEqual(symbol_height, size.Height);
+                    });
+                Assert.AreEqual(symbol_width_codeB, size_codeB.Width);
+                Assert.AreEqual(symbol_height, size_codeB.Height);
+                printer.PopOperation();
+
+                try
+                {
+                    // Explicitly passing the start code throws an exception.
+                    _ = printer.Barcode.AddCODE128(1, 1, ">G", (Size _) => { });
+                    Assert.Fail();
+                }
+                catch (Exception e)
+                {
+                    Assert.IsInstanceOfType(e, typeof(TinySatoArgumentException));
+                }
+
+                printer.Send();
+            }
+
+            var expected = (new byte[] { ENQ, STX }).Concat(new string[]
+            {
+                "A",
+                $"H{X:D4}",
+                $"V{Y:D4}",
+            }.SelectMany(x => (new byte[] { ESC }).Concat(Encoding.ASCII.GetBytes(x))))
+                .Concat(operation)
+                .Concat(new byte[] { ESC, ASCII_Z, ETX });
+
+            using (task)
+            {
+                var actual = await task;
+                CollectionAssert.AreEqual(expected.ToArray(), actual);
+            }
+        }
     }
 }

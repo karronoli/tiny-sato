@@ -32,12 +32,17 @@ namespace TinySato
             this.printer.Add(string.Format("BG{0:D2}{1:D3}{2}", narrow_bar_width, barcode_height, print_data));
         }
 
-        public void AddCODE128(int narrow_bar_width, int barcode_height, string print_data, Action<Size> set_position_by_size)
+        public Size AddCODE128(int narrow_bar_width, int barcode_height, string print_data, Action<Size> set_position_by_size)
         {
             if (!(1 <= narrow_bar_width && narrow_bar_width <= 12))
                 throw new TinySatoArgumentException("Specify 1-12 dot for Narrow Bar Width.");
             if (!(1 <= barcode_height && barcode_height <= 600))
                 throw new TinySatoArgumentException("Specify 1-600 dot for Barcode Height.");
+            var print_data_head = print_data.Substring(0, 2);
+            if (print_data_head == ">G" // Start Code A
+                || print_data_head == ">H" // Start Code B
+                || print_data_head == ">I") // Start Code C
+                throw new TinySatoArgumentException($"Remove Start Code from the beginning of print_data. head:{print_data_head}");
 
             var m = (new Regex(@"(\d{6,})$")).Match(print_data);
             var index = m.Success ?
@@ -50,23 +55,29 @@ namespace TinySato
                     + 11 * front.Length * narrow_bar_width // front
                     + 11 * narrow_bar_width // check
                     + 13 * narrow_bar_width; // stop
+
+            Size symbol_size;
             if (back.Length > 0)
             {
                 var width_set_c =
                     11 * narrow_bar_width // shift
                     + 11 * back.Length / 2 * narrow_bar_width; // back
-                set_position_by_size(new Size(width + width_set_c, barcode_height));
+                symbol_size = new Size(width + width_set_c, barcode_height);
+                set_position_by_size(symbol_size);
                 this.printer.Add(string.Format("BG{0:D2}{1:D3}{2}",
                     narrow_bar_width, barcode_height,
                     ">H" + front + ">C" + back));
             }
             else
             {
-                set_position_by_size(new Size(width, barcode_height));
+                symbol_size = new Size(width, barcode_height);
+                set_position_by_size(symbol_size);
                 this.printer.Add(string.Format("BG{0:D2}{1:D3}{2}",
                     narrow_bar_width, barcode_height,
                     ">H" + front));
             }
+
+            return symbol_size;
         }
 
         public void AddJAN13(int thin_bar_width, int barcode_top, string print_data)
